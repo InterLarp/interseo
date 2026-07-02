@@ -3,7 +3,7 @@ import path from 'node:path';
 import { auditSite, buildGeneratedKit } from './auditor.js';
 
 const rawArgs = process.argv.slice(2);
-const known = new Set(['audit', 'kit', 'report']);
+const known = new Set(['audit', 'kit', 'report', 'prompt']);
 const command = known.has(rawArgs[0]) ? rawArgs.shift() : 'audit';
 const flags = parseFlags(rawArgs);
 const domain = flags._[0];
@@ -12,13 +12,19 @@ const name = flags.name || flags.siteName || flags._.slice(1).join(' ');
 if (!domain) usage();
 
 try {
-  if (command === 'audit') {
+  if (command === 'audit' || command === 'prompt') {
     const result = await auditSite({
       url: domain,
       siteName: name,
       crawlLimit: flags.full ? 20 : flags.deep ? 12 : flags.limit,
       linkProbeLimit: flags.full ? 40 : flags.deep ? 24 : flags.linkProbeLimit
     });
+
+    if (command === 'prompt' || flags.prompt) {
+      const promptType = flags.prompt === 'mcp' ? 'mcp' : flags.prompt === 'direct' ? 'direct' : 'skill';
+      console.log(result.fixPrompts[promptType]);
+      process.exit(0);
+    }
 
     if (flags.save) {
       const dir = await saveFiles(result.kit.files, flags.out || `generated/${safeSlug(result.kit.siteName)}`);
@@ -38,7 +44,7 @@ try {
       siteName: name,
       description: flags.description || '',
       businessName: flags.businessName || name,
-      discoveredUrls: flags.urls ? String(flags.urls).split(',').map((item) => item.trim()).filter(Boolean) : [domain]
+      discoveredUrls: flags.urls ? String(flags.urls).split(',').map((item) => item.trim()).filter(Boolean) : undefined
     });
 
     if (flags.save) {
@@ -108,9 +114,11 @@ function safeSlug(value) {
 }
 
 function usage() {
-  console.error('Uso: node src/cli.js dominio.com "Nombre"');
-  console.error('Uso: node src/cli.js dominio.com "Nombre" --save');
-  console.error('Uso: node src/cli.js dominio.com "Nombre" --deep');
-  console.error('Uso: node src/cli.js kit dominio.com "Nombre" --save');
+  console.error('Uso: node src/cli.js dominio.com');
+  console.error('Uso: node src/cli.js dominio.com --save');
+  console.error('Uso: node src/cli.js dominio.com --deep');
+  console.error('Uso: node src/cli.js dominio.com --prompt=mcp');
+  console.error('Uso: node src/cli.js prompt dominio.com');
+  console.error('Uso: node src/cli.js kit dominio.com --save');
   process.exit(1);
 }

@@ -1,5 +1,5 @@
 import { createInterface } from 'node:readline';
-import { analyzeHtml, auditSite, buildAuditReports, buildGeneratedKit } from './auditor.js';
+import { analyzeHtml, auditSite, buildAuditReports, buildFixPrompts, buildGeneratedKit } from './auditor.js';
 
 const PROTOCOL_VERSION = '2025-06-18';
 
@@ -12,7 +12,7 @@ const tools = [
       type: 'object',
       properties: {
         url: { type: 'string', description: 'Website URL to audit.' },
-        siteName: { type: 'string', description: 'Optional site or brand name.' },
+        siteName: { type: 'string', description: 'Optional site or brand name. If omitted, interseo infers it from crawl metadata.' },
         crawlLimit: { type: 'number', description: 'Maximum same-origin pages to crawl. Default 5, max 40.' },
         linkProbeLimit: { type: 'number', description: 'Maximum internal URLs to probe for broken-link detection. Default 12.' }
       },
@@ -27,12 +27,25 @@ const tools = [
       type: 'object',
       properties: {
         url: { type: 'string', description: 'Canonical website URL.' },
-        siteName: { type: 'string', description: 'Site or brand name.' },
+        siteName: { type: 'string', description: 'Optional site or brand name. If omitted, interseo uses the domain.' },
         description: { type: 'string', description: 'Short site description.' },
         businessName: { type: 'string', description: 'Legal or business name.' },
         discoveredUrls: { type: 'array', items: { type: 'string' }, description: 'Known same-origin URLs to include in sitemap.xml.' }
       },
       required: ['url']
+    }
+  },
+  {
+    name: 'generate_fix_prompt',
+    title: 'Generate SEO Fix Prompt',
+    description: 'Generate a ready-to-use prompt for fixing SEO issues with the interseo skill, MCP workflow, or direct repository edits.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'Website URL to audit before generating the prompt.' },
+        mode: { type: 'string', enum: ['skill', 'mcp', 'direct'], description: 'Prompt style to return. Default skill.' },
+        audit: { type: 'object', description: 'Optional audit result. If provided, no new crawl is needed.' }
+      }
     }
   },
   {
@@ -69,6 +82,12 @@ const handlers = {
   },
   async generate_seo_kit(args) {
     return buildGeneratedKit(args || {});
+  },
+  async generate_fix_prompt(args) {
+    const audit = args?.audit || await auditSite({ url: args?.url, crawlLimit: args?.crawlLimit, linkProbeLimit: args?.linkProbeLimit });
+    const prompts = audit.fixPrompts || buildFixPrompts(audit);
+    const mode = ['skill', 'mcp', 'direct'].includes(args?.mode) ? args.mode : 'skill';
+    return { mode, prompt: prompts[mode], prompts, issues: prompts.issues };
   },
   async analyze_html(args) {
     return analyzeHtml(String(args?.html || ''), String(args?.url || 'https://example.com/'));
@@ -108,7 +127,7 @@ async function dispatch(message) {
     return {
       protocolVersion: PROTOCOL_VERSION,
       capabilities: { tools: { listChanged: false } },
-      serverInfo: { name: 'interseo', title: 'interseo', version: '1.1.0' },
+      serverInfo: { name: 'interseo', title: 'interseo', version: '1.2.0' },
       instructions: 'Use interseo tools to audit SEO, generate Google-ready assets, and build reports.'
     };
   }

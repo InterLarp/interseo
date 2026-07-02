@@ -4,29 +4,37 @@ CLI + MCP + skill para auditar SEO tecnico, DNS, rastreo, indexacion y preparaci
 
 ## Uso rapido
 
-Solo dominio y nombre:
+Solo dominio. El nombre se infiere desde el crawl, metadatos, title, H1 o dominio:
 
 ```powershell
-node src/cli.js tudominio.com "Nombre del proyecto"
+node src/cli.js tudominio.com
 ```
 
 Guardar kit generado:
 
 ```powershell
-node src/cli.js tudominio.com "Nombre del proyecto" --save
+node src/cli.js tudominio.com --save
 ```
 
 Rastreo mas amplio:
 
 ```powershell
-node src/cli.js tudominio.com "Nombre del proyecto" --deep
-node src/cli.js tudominio.com "Nombre del proyecto" --full
+node src/cli.js tudominio.com --deep
+node src/cli.js tudominio.com --full
+```
+
+Generar un prompt para arreglar los problemas detectados:
+
+```powershell
+node src/cli.js tudominio.com --prompt
+node src/cli.js tudominio.com --prompt=mcp
+node src/cli.js prompt tudominio.com
 ```
 
 Generar kit sin auditoria:
 
 ```powershell
-node src/cli.js kit tudominio.com "Nombre del proyecto" --save
+node src/cli.js kit tudominio.com --save
 ```
 
 El email legal se deriva solo como `contacto@dominio`.
@@ -52,8 +60,9 @@ Config de ejemplo:
 
 Herramientas MCP:
 
-- `audit_site`: auditoria con DNS, crawler, score, reportes y kit.
+- `audit_site`: auditoria con DNS, crawler, score, reportes, prompts y kit.
 - `generate_seo_kit`: genera archivos sin rastrear.
+- `generate_fix_prompt`: genera un prompt listo para arreglar SEO con `$interseo`, MCP o cambios directos.
 - `analyze_html`: analiza HTML bruto.
 - `build_report`: crea Markdown y CSV desde un audit JSON.
 
@@ -91,6 +100,7 @@ npm.cmd run skill:install
 - `interseo.mcp.json`
 - Plantillas en `legal/`
 - Reportes en `reports/`
+- Prompts de arreglo en `prompts/`
 
 Las plantillas legales son orientativas. Deben revisarse con datos reales y criterio legal antes de publicarlas.
 

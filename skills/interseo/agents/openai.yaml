@@ -1,4 +1,4 @@
 interface:
   display_name: "interseo"
-  short_description: "SEO CLI con DNS y MCP"
-  default_prompt: "Use $interseo to audit a domain from the CLI, check DNS and SEO, and generate a Google-ready kit."
+  short_description: "SEO CLI con DNS y prompts"
+  default_prompt: "Use $interseo to audit a domain, infer the site name, and generate a fix prompt for SEO issues."

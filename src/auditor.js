@@ -360,11 +360,12 @@ export async function auditSite(input) {
   const score = rawMax ? Math.round((rawScore / rawMax) * 100) : 0;
   const categories = summarizeCategories(checks);
   const discoveredUrls = collectDiscoveredUrls(targetUrl.href, page, sitemap, policies, crawl);
+  const inferredSiteName = cleanText(request.siteName || request.name || inferSiteName(page, targetUrl));
   const kit = buildGeneratedKit({
     url: targetUrl.href,
-    siteName: request.siteName || page.title || targetUrl.hostname,
+    siteName: inferredSiteName,
     description: request.description || page.description || '',
-    businessName: request.businessName || request.siteName || page.title || targetUrl.hostname,
+    businessName: request.businessName || inferredSiteName,
     contactEmail: defaultContactEmailForUrl(targetUrl.href),
     discoveredUrls
   });
@@ -374,6 +375,7 @@ export async function auditSite(input) {
     elapsedMs: Date.now() - startedAt,
     inputUrl: targetUrl.href,
     finalUrl: homepage.finalUrl || targetUrl.href,
+    siteName: inferredSiteName,
     score,
     maxScore: 100,
     rawScore,
@@ -400,9 +402,26 @@ export async function auditSite(input) {
     kit
   };
 
+  result.fixPrompts = buildFixPrompts(result);
   result.reports = buildAuditReports(result);
   result.kit.files.push(...buildReportFiles(result));
   return result;
+}
+function inferSiteName(page, targetUrl) {
+  const candidates = [
+    page.openGraph?.siteName,
+    page.openGraph?.title,
+    page.title,
+    page.h1?.[0],
+    targetUrl.hostname.replace(/^www\./i, '')
+  ];
+
+  for (const candidate of candidates) {
+    const cleaned = cleanText(String(candidate || '').split(/\s[-|·:]\s/)[0]);
+    if (cleaned && cleaned.length >= 2 && cleaned.length <= 80) return cleaned;
+  }
+
+  return targetUrl.hostname.replace(/^www\./i, '');
 }
 function emptyPageAnalysis(url) {
   return {
@@ -460,7 +479,8 @@ export function analyzeHtml(html, pageUrl) {
     title: findMetaContent(html, 'property', 'og:title'),
     description: findMetaContent(html, 'property', 'og:description'),
     image: findMetaContent(html, 'property', 'og:image'),
-    type: findMetaContent(html, 'property', 'og:type')
+    type: findMetaContent(html, 'property', 'og:type'),
+    siteName: findMetaContent(html, 'property', 'og:site_name')
   };
   const twitter = {
     card: findMetaContent(html, 'name', 'twitter:card'),
@@ -1246,16 +1266,90 @@ function collectDiscoveredUrls(homepageUrl, page, sitemap, policies, crawl) {
   return [...urls].slice(0, 250);
 }
 
+export function buildFixPrompts(result) {
+  const siteName = result.siteName || result.kit?.siteName || result.finalUrl || result.inputUrl;
+  const url = result.finalUrl || result.inputUrl;
+  const issues = (result.priority || []).slice(0, 12).map((check) => ({
+    id: check.id,
+    category: check.category,
+    problem: check.label,
+    evidence: check.evidence,
+    fix: check.recommendation
+  }));
+  const issueText = issues.map((item, index) => `${index + 1}. [${item.category}] ${item.problem}: ${item.fix} Evidencia: ${item.evidence}`).join('\n');
+  const kitFiles = (result.kit?.files || []).map((file) => file.path).join(', ');
+  const context = [
+    `Sitio: ${siteName}`,
+    `URL: ${url}`,
+    `Puntuacion interseo: ${result.score}/100 (${result.grade?.label || 'sin nota'})`,
+    `DNS: ${result.dns?.resolves ? 'resuelve' : 'no resuelve'} (${result.dns?.lookupMs ?? 0} ms)`,
+    `Sitemap: ${result.sitemap?.found ? result.sitemap.url : 'falta'}`,
+    `robots.txt: ${result.robots?.exists ? 'existe' : 'falta o no accesible'}`,
+    `Paginas rastreadas: ${result.crawl?.totals?.pages || 0}`,
+    `Archivos sugeridos por interseo: ${kitFiles}`
+  ].join('\n');
+
+  const skill = [
+    'Use $interseo para arreglar el SEO tecnico de este proyecto.',
+    '',
+    context,
+    '',
+    'Problemas priorizados:',
+    issueText || 'No hay problemas priorizados.',
+    '',
+    'Tareas:',
+    '- Lee el proyecto actual y localiza donde se gestionan head tags, rutas publicas, sitemap, robots y legal pages.',
+    '- Aplica cambios reales en el codigo o archivos estaticos para corregir los problemas priorizados.',
+    '- Genera o actualiza robots.txt, sitemap.xml, canonical, title, meta description, JSON-LD, Open Graph, Twitter Cards, paginas legales y enlaces internos cuando falten.',
+    '- Si hay problemas DNS, explica el cambio exacto que debe hacerse en el proveedor DNS y no finjas haberlo aplicado si no tienes acceso.',
+    '- Ejecuta tests/build disponibles y vuelve a pasar interseo al final.',
+    '- Entrega resumen corto con archivos tocados, score esperado y pasos pendientes de Google Search Console.',
+    ''
+  ].join('\n');
+
+  const mcp = [
+    'Usa el MCP `interseo` para auditar y arreglar este sitio.',
+    '',
+    '1. Llama a la herramienta MCP `audit_site` con: { "url": "' + url + '", "crawlLimit": 12, "linkProbeLimit": 24 }.',
+    '2. Toma los checks con status fail/warn como backlog priorizado.',
+    '3. Modifica el repositorio actual para corregir los problemas de mayor impacto primero.',
+    '4. Llama a `generate_seo_kit` si faltan robots.txt, sitemap.xml, JSON-LD o plantillas legales.',
+    '5. Vuelve a llamar a `audit_site` y compara el score antes/despues.',
+    '',
+    'Contexto actual:',
+    context,
+    '',
+    'Problemas priorizados:',
+    issueText || 'No hay problemas priorizados.',
+    ''
+  ].join('\n');
+
+  const direct = [
+    'Arregla el SEO tecnico de este proyecto usando este informe interseo como fuente de verdad.',
+    '',
+    context,
+    '',
+    'Problemas priorizados:',
+    issueText || 'No hay problemas priorizados.',
+    '',
+    'Implementa los cambios en el repo, valida con tests/build, y deja instrucciones DNS/Search Console solo cuando no puedas aplicarlas desde codigo.',
+    ''
+  ].join('\n');
+
+  return { skill, mcp, direct, issues };
+}
 export function buildAuditReports(result) {
   return {
     markdown: buildMarkdownReport(result),
     checksCsv: buildChecksCsv(result.checks || []),
-    pagesCsv: buildPagesCsv(result.crawl?.pages || [])
+    pagesCsv: buildPagesCsv(result.crawl?.pages || []),
+    fixPrompt: result.fixPrompts?.direct || buildFixPrompts(result).direct
   };
 }
 
 function buildReportFiles(result) {
   const reports = result.reports || buildAuditReports(result);
+  const prompts = result.fixPrompts || buildFixPrompts(result);
   return [
     {
       path: 'reports/interseo-audit.md',
@@ -1276,6 +1370,21 @@ function buildReportFiles(result) {
       path: 'reports/audit.json',
       language: 'json',
       content: `${JSON.stringify(compactAuditJson(result), null, 2)}\n`
+    },
+    {
+      path: 'prompts/fix-with-skill.md',
+      language: 'markdown',
+      content: prompts.skill
+    },
+    {
+      path: 'prompts/fix-with-mcp.md',
+      language: 'markdown',
+      content: prompts.mcp
+    },
+    {
+      path: 'prompts/fix-direct.md',
+      language: 'markdown',
+      content: prompts.direct
     }
   ];
 }
@@ -1326,6 +1435,8 @@ function buildMarkdownReport(result) {
   lines.push('- Verifica dominio en Google Search Console.');
   lines.push('- Envia el sitemap desde el informe Sitemaps.');
   lines.push('- Usa inspeccion de URL para pedir recrawl de la home despues de publicar cambios.');
+  lines.push('', '## Prompt para arreglarlo', '');
+  lines.push('El kit incluye prompts listos en prompts/fix-with-skill.md, prompts/fix-with-mcp.md y prompts/fix-direct.md.');
   lines.push('');
 
   return lines.join('\n');
@@ -1364,6 +1475,7 @@ function compactAuditJson(result) {
     sitemap: result.sitemap,
     policies: result.policies,
     dns: result.dns,
+    fixPrompts: result.fixPrompts,
     crawl: {
       totals: result.crawl?.totals || {},
       pages: result.crawl?.pages || [],
