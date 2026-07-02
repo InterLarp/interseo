@@ -11,13 +11,16 @@ const name = flags.name || flags.siteName || flags._.slice(1).join(' ');
 
 if (!domain) usage();
 
+const crawlLimit = flags.full ? 20 : flags.deep ? 12 : flags.limit;
+const linkProbeLimit = flags.full ? 40 : flags.deep ? 24 : flags.linkProbeLimit;
+
 try {
   if (command === 'audit' || command === 'prompt') {
     const result = await auditSite({
       url: domain,
       siteName: name,
-      crawlLimit: flags.full ? 20 : flags.deep ? 12 : flags.limit,
-      linkProbeLimit: flags.full ? 40 : flags.deep ? 24 : flags.linkProbeLimit
+      crawlLimit,
+      linkProbeLimit
     });
 
     if (command === 'prompt' || flags.prompt) {
@@ -56,7 +59,7 @@ try {
   }
 
   if (command === 'report') {
-    const result = await auditSite({ url: domain, siteName: name, crawlLimit: flags.limit });
+    const result = await auditSite({ url: domain, siteName: name, crawlLimit, linkProbeLimit });
     console.log(result.reports.markdown);
   }
 } catch (error) {
@@ -97,7 +100,7 @@ async function saveFiles(files, outDir) {
     const safePath = String(file.path || '').replace(/\\/g, '/').split('/').filter((part) => part && part !== '.' && part !== '..').join('/');
     if (!safePath) continue;
     const target = path.resolve(targetDir, safePath);
-    if (!target.startsWith(targetDir)) continue;
+    if (target !== targetDir && !target.startsWith(targetDir + path.sep)) continue;
     await mkdir(path.dirname(target), { recursive: true });
     await writeFile(target, String(file.content || ''), 'utf8');
   }

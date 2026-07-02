@@ -116,3 +116,7 @@ scripts/install-skill.js   instalador de la skill en CODEX_HOME
 skills/interseo/           skill versionada para Codex
 docs/                      referencia de CLI y MCP
 ```
+
+## Licencia
+
+Gratis y open source, bajo licencia [MIT](LICENSE). Úsalo, modifícalo y compártelo como quieras.

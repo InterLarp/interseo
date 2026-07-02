@@ -101,7 +101,12 @@ export function normalizeUrl(input) {
   }
 
   const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-  const url = new URL(withProtocol);
+  let url;
+  try {
+    url = new URL(withProtocol);
+  } catch {
+    throw new Error(`URL no valida: ${raw}`);
+  }
 
   if (!['http:', 'https:'].includes(url.protocol)) {
     throw new Error('La URL debe usar http o https.');
@@ -143,7 +148,7 @@ export async function fetchText(url, options = {}) {
     }
 
     const buffer = await response.arrayBuffer();
-    const text = new TextDecoder('utf-8').decode(buffer.slice(0, MAX_RESPONSE_BYTES));
+    const text = decoderFor(response.headers.get('content-type')).decode(buffer.slice(0, MAX_RESPONSE_BYTES));
 
     return {
       url,
@@ -170,6 +175,16 @@ export async function fetchText(url, options = {}) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function decoderFor(contentType) {
+  const charset = String(contentType || '').match(/charset=["']?([\w-]+)/i)?.[1];
+  if (charset && !/^utf-?8$/i.test(charset)) {
+    try {
+      return new TextDecoder(charset);
+    } catch {}
+  }
+  return new TextDecoder('utf-8');
 }
 
 async function fetchProbe(url, options = {}) {
@@ -291,10 +306,19 @@ function flattenTxt(values) {
   return (values || []).map((item) => Array.isArray(item) ? item.join('') : String(item));
 }
 
+const SECOND_LEVEL_SUFFIXES = new Set([
+  'co.uk', 'org.uk', 'me.uk', 'ac.uk', 'gov.uk',
+  'com.ar', 'com.au', 'com.br', 'com.co', 'com.mx', 'com.pe', 'com.uy', 'com.ve',
+  'com.es', 'nom.es', 'org.es', 'edu.es', 'gob.es',
+  'co.jp', 'co.kr', 'co.in', 'co.nz', 'co.za', 'com.cn', 'com.tw', 'com.sg'
+]);
+
 function guessDomain(hostname) {
   const parts = String(hostname || '').split('.').filter(Boolean);
   if (parts.length <= 2) return parts.join('.');
-  return parts.slice(-2).join('.');
+  const lastTwo = parts.slice(-2).join('.');
+  if (SECOND_LEVEL_SUFFIXES.has(lastTwo)) return parts.slice(-3).join('.');
+  return lastTwo;
 }
 
 function defaultContactEmailForUrl(url) {
@@ -1123,7 +1147,7 @@ export function buildChecks({ targetUrl, homepage, page, robotsResponse, robots,
     }),
     makeCheck({
       id: 'sitemap_size_limit',
-      points: sitemapWithinLimits ? 2 : sitemap.found ? 0 : 0,
+      points: sitemapWithinLimits ? 2 : 0,
       label: 'Sitemap dentro de limites',
       evidence: sitemap.found ? `${sitemap.urlCount} URL(s)` : 'Sin sitemap',
       recommendation: 'Divide sitemaps grandes en indices antes de superar 50.000 URLs por archivo.'
@@ -1935,13 +1959,13 @@ function cleanText(value) {
 function decodeHtml(value) {
   return String(value || '')
     .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
     .replace(/&lt;/gi, '<')
     .replace(/&gt;/gi, '>')
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'")
     .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
-    .replace(/&#(\d+);/g, (_, num) => String.fromCodePoint(Number.parseInt(num, 10)));
+    .replace(/&#(\d+);/g, (_, num) => String.fromCodePoint(Number.parseInt(num, 10)))
+    .replace(/&amp;/gi, '&');
 }
 
 function escapeHtml(value) {
