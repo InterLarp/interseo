@@ -2,6 +2,8 @@
 
 `src/mcp.js` expone interseo como servidor MCP por stdio (JSON-RPC, protocolo `2025-06-18`). No requiere instalación ni dependencias: cualquier cliente MCP puede lanzarlo con Node.
 
+Los fallos al ejecutar una herramienta se devuelven dentro del resultado con `isError: true` (como indica el spec MCP); las herramientas o métodos desconocidos devuelven errores JSON-RPC (`-32602` / `-32601`).
+
 ## Arranque
 
 ```powershell

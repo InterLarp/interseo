@@ -5,29 +5,35 @@ description: Audit and improve technical SEO from the interseo CLI and MCP serve
 
 # interseo
 
-interseo is a CLI-first SEO auditor. The normal input is just a domain: the site name is inferred from crawl metadata (title, H1, Open Graph) or the domain itself, and the legal contact email is derived as `contacto@domain`.
+interseo is a CLI-first SEO auditor with an MCP server. The normal input is just a domain: the site name is inferred from crawl metadata (title, H1, Open Graph) or the domain itself, and the legal contact email is derived as `contacto@domain`. It has zero dependencies and needs Node 20+.
 
-## Workflow
+## Choosing the entry point
 
-1. From the interseo repo, run `node src/cli.js <domain>` for the default fast audit.
-2. Add `--save` to write the generated SEO kit, reports, and fix prompts to `generated/`.
-3. Use `--prompt`, `--prompt=mcp`, or `node src/cli.js prompt <domain>` when the user wants a ready-to-paste prompt to fix the site.
-4. Add `--deep` for a broader crawl (12 pages) or `--full` for the largest built-in crawl (20 pages).
-5. Run `node src/mcp.js` when an MCP client should call interseo tools instead of the CLI.
-6. Read `references/seo-checks.md` for scoring categories, priority order, and output interpretation.
+- **CLI** (`node src/cli.js`) — default. Use for one-off audits, saving kits to disk, or printing fix prompts.
+- **MCP** (`node src/mcp.js`) — use when a client should call tools programmatically, chain audits with fixes, reuse a previous audit JSON, or analyze raw HTML without fetching.
+- Full command, flag, and tool parameter tables: `references/cli-and-mcp.md`.
+- Scoring categories, priority order, and kit contents: `references/seo-checks.md`.
 
-## CLI
+## CLI workflow
+
+1. From the interseo repo, run `node src/cli.js <domain>` for the default fast audit (5 pages).
+2. Add `--save` to write the kit, reports, and prompts to `generated/<site>/`.
+3. Add `--deep` (12 pages) or `--full` (20 pages) for broader crawls; `--limit <n>` for exact control.
+4. Use `--prompt`, `--prompt=mcp`, `--prompt=direct`, or `node src/cli.js prompt <domain>` for a ready-to-paste fix prompt.
+5. Use `node src/cli.js kit <domain> --save` to generate files without crawling (accepts `--description`, `--businessName`, `--urls`).
+6. Use `--json` for the full machine-readable audit; the Markdown report is the default output.
+7. `--help` prints the complete flag reference; `--version` prints the version.
 
 ```powershell
 node src/cli.js example.com
-node src/cli.js example.com --save
-node src/cli.js example.com --deep
+node src/cli.js example.com --save --deep
 node src/cli.js example.com --prompt=mcp
 node src/cli.js prompt example.com
 node src/cli.js kit example.com --save
+node src/cli.js report example.com --full
 ```
 
-## MCP
+## MCP workflow
 
 Point the client at `src/mcp.js` inside the interseo repo:
 
@@ -42,13 +48,22 @@ Point the client at `src/mcp.js` inside the interseo repo:
 }
 ```
 
-Available tools:
+Typical tool chains:
 
-- `audit_site` — full audit with DNS, crawl, score, reports, prompts, and kit.
-- `generate_seo_kit` — generate the kit files without crawling.
-- `generate_fix_prompt` — ready-to-use fix prompt from a URL or a previous audit JSON.
-- `analyze_html` — inspect raw HTML.
-- `build_report` — convert audit JSON to Markdown and CSV reports.
+- **Audit then fix**: `audit_site` → take fail/warn checks as backlog → apply repo changes → `audit_site` again to compare scores.
+- **Fix prompt without re-crawling**: pass a previous audit to `generate_fix_prompt` as `audit` — no new network calls.
+- **Offline analysis**: `analyze_html` for raw HTML you already have; `build_report` to turn any audit JSON into Markdown/CSV.
+- **Bootstrap files**: `generate_seo_kit` when the site needs robots/sitemap/JSON-LD/legal pages and a crawl is unnecessary.
+
+Tools: `audit_site`, `generate_seo_kit`, `generate_fix_prompt`, `analyze_html`, `build_report` — parameters in `references/cli-and-mcp.md`. Tool failures come back in-band with `isError: true`, not as protocol errors.
+
+## Interpreting results
+
+- `score` is 0-100; grades: Excelente (≥90), Bueno (≥75), Mejorable (≥60), Crítico (<60).
+- `priority` lists failing checks sorted by lost points — work top-down.
+- `checks[].status` is `pass` / `warn` / `fail`; `evidence` explains what was observed, `recommendation` how to fix it.
+- `crawl.totals` has duplicate titles/descriptions, thin content, noindex, and broken-link counts across crawled pages.
+- `kit.files` contains every generated file (path + content) ready to write.
 
 ## Output standards
 
@@ -56,4 +71,4 @@ Report blocking issues first: DNS not resolving, inaccessible home, `noindex`, r
 
 When the user asks how to fix the results, hand them the generated prompt from `fixPrompts.skill`, `fixPrompts.mcp`, or the kit files under `prompts/`.
 
-Never claim the Google submission is complete unless a verified Search Console property and a submitted sitemap are confirmed by the user or by tooling.
+Never claim the Google submission is complete unless a verified Search Console property and a submitted sitemap are confirmed by the user or by tooling. If DNS changes are needed, describe the exact records to change at the DNS provider — do not pretend to have applied them.

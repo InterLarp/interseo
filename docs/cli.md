@@ -43,10 +43,10 @@ node src/cli.js kit tudominio.com --urls "https://tudominio.com/,https://tudomin
 
 ### `report`
 
-Audita y muestra solo el informe Markdown (sin guardar nada).
+Audita y muestra solo el informe Markdown (sin guardar nada). Acepta `--deep`, `--full` y `--limit` igual que `audit`.
 
 ```powershell
-node src/cli.js report tudominio.com
+node src/cli.js report tudominio.com --full
 ```
 
 ## Flags
@@ -65,6 +65,10 @@ node src/cli.js report tudominio.com
 | `--description <texto>` | kit | Descripción corta del sitio para los archivos generados |
 | `--businessName <nombre>` | kit | Nombre legal del negocio para las plantillas |
 | `--urls <lista>` | kit | URLs conocidas (separadas por comas) para el sitemap |
+| `--help`, `-h` | — | Muestra la ayuda completa |
+| `--version` | — | Muestra la versión |
+
+Los flags booleanos (`--save`, `--deep`, `--full`, `--json`, `--prompt`) nunca consumen el siguiente argumento, así que `node src/cli.js --save tudominio.com` también funciona.
 
 ## Salida
 

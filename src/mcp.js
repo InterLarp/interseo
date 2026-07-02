@@ -1,6 +1,8 @@
 import { createInterface } from 'node:readline';
+import { createRequire } from 'node:module';
 import { analyzeHtml, auditSite, buildAuditReports, buildFixPrompts, buildGeneratedKit } from './auditor.js';
 
+const pkg = createRequire(import.meta.url)('../package.json');
 const PROTOCOL_VERSION = '2025-06-18';
 
 const tools = [
@@ -118,7 +120,7 @@ rl.on('line', async (line) => {
     const result = await dispatch(message);
     write({ jsonrpc: '2.0', id: message.id, result });
   } catch (error) {
-    write({ jsonrpc: '2.0', id: message.id, error: { code: -32603, message: error.message || 'Internal error' } });
+    write({ jsonrpc: '2.0', id: message.id, error: { code: error.rpcCode || -32603, message: error.message || 'Internal error' } });
   }
 });
 
@@ -127,7 +129,7 @@ async function dispatch(message) {
     return {
       protocolVersion: PROTOCOL_VERSION,
       capabilities: { tools: { listChanged: false } },
-      serverInfo: { name: 'interseo', title: 'interseo', version: '1.2.0' },
+      serverInfo: { name: 'interseo', title: 'interseo', version: pkg.version },
       instructions: 'Use interseo tools to audit SEO, generate Google-ready assets, and build reports.'
     };
   }
@@ -145,13 +147,26 @@ async function dispatch(message) {
     const args = message.params?.arguments || {};
     const handler = handlers[name];
     if (!handler) {
-      throw new Error(`Unknown tool: ${name}`);
+      throw rpcError(-32602, `Unknown tool: ${name}`);
     }
-    const data = await handler(args);
-    return toolResult(data);
+    try {
+      const data = await handler(args);
+      return toolResult(data);
+    } catch (error) {
+      return {
+        content: [{ type: 'text', text: String(error.message || error) }],
+        isError: true
+      };
+    }
   }
 
-  throw new Error(`Unsupported method: ${message.method}`);
+  throw rpcError(-32601, `Unsupported method: ${message.method}`);
+}
+
+function rpcError(code, message) {
+  const error = new Error(message);
+  error.rpcCode = code;
+  return error;
 }
 
 function toolResult(data) {

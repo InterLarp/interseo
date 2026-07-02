@@ -1,7 +1,10 @@
 import { mkdir, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { auditSite, buildGeneratedKit } from './auditor.js';
 
+const pkg = createRequire(import.meta.url)('../package.json');
+const BOOLEAN_FLAGS = new Set(['save', 'deep', 'full', 'json', 'prompt', 'help', 'version']);
 const rawArgs = process.argv.slice(2);
 const known = new Set(['audit', 'kit', 'report', 'prompt']);
 const command = known.has(rawArgs[0]) ? rawArgs.shift() : 'audit';
@@ -9,7 +12,13 @@ const flags = parseFlags(rawArgs);
 const domain = flags._[0];
 const name = flags.name || flags.siteName || flags._.slice(1).join(' ');
 
-if (!domain) usage();
+if (flags.version) {
+  console.log(pkg.version);
+  process.exit(0);
+}
+
+if (flags.help) usage(0);
+if (!domain) usage(1);
 
 const crawlLimit = flags.full ? 20 : flags.deep ? 12 : flags.limit;
 const linkProbeLimit = flags.full ? 40 : flags.deep ? 24 : flags.linkProbeLimit;
@@ -71,6 +80,10 @@ function parseFlags(values) {
   const out = { _: [] };
   for (let index = 0; index < values.length; index += 1) {
     const value = values[index];
+    if (value === '-h') {
+      out.help = true;
+      continue;
+    }
     if (!value.startsWith('--')) {
       out._.push(value);
       continue;
@@ -80,6 +93,11 @@ function parseFlags(values) {
     const equalsIndex = withoutPrefix.indexOf('=');
     if (equalsIndex >= 0) {
       out[withoutPrefix.slice(0, equalsIndex)] = withoutPrefix.slice(equalsIndex + 1);
+      continue;
+    }
+
+    if (BOOLEAN_FLAGS.has(withoutPrefix)) {
+      out[withoutPrefix] = true;
       continue;
     }
 
@@ -116,12 +134,38 @@ function safeSlug(value) {
     .slice(0, 60) || 'interseo';
 }
 
-function usage() {
-  console.error('Uso: node src/cli.js dominio.com');
-  console.error('Uso: node src/cli.js dominio.com --save');
-  console.error('Uso: node src/cli.js dominio.com --deep');
-  console.error('Uso: node src/cli.js dominio.com --prompt=mcp');
-  console.error('Uso: node src/cli.js prompt dominio.com');
-  console.error('Uso: node src/cli.js kit dominio.com --save');
-  process.exit(1);
+function usage(exitCode = 1) {
+  const print = exitCode === 0 ? console.log : console.error;
+  print(`interseo ${pkg.version} - auditor de SEO tecnico
+
+Uso: node src/cli.js [comando] <dominio> [nombre del sitio] [flags]
+
+Comandos:
+  audit    auditoria completa (por defecto)
+  prompt   auditar y devolver solo el prompt de arreglo
+  kit      generar el kit de archivos sin rastrear
+  report   auditar y mostrar solo el informe Markdown
+
+Flags:
+  --save                    guardar el kit generado en disco
+  --out <dir>               carpeta de salida (por defecto generated/<sitio>)
+  --deep                    crawl de hasta 12 paginas
+  --full                    crawl de hasta 20 paginas
+  --limit <n>               limite de paginas a rastrear
+  --linkProbeLimit <n>      limite de enlaces internos a comprobar
+  --prompt[=skill|mcp|direct]  imprimir el prompt de arreglo
+  --json                    imprimir el resultado completo como JSON
+  --name <nombre>           forzar el nombre del sitio
+  --description <texto>     descripcion para el kit
+  --businessName <nombre>   nombre legal para las plantillas
+  --urls <lista>            URLs conocidas para el sitemap (separadas por comas)
+  --help, -h                mostrar esta ayuda
+  --version                 mostrar la version
+
+Ejemplos:
+  node src/cli.js tudominio.com
+  node src/cli.js tudominio.com --save --deep
+  node src/cli.js prompt tudominio.com
+  node src/cli.js kit tudominio.com --save`);
+  process.exit(exitCode);
 }
