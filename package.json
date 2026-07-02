@@ -9,7 +9,6 @@
     "audit": "node src/cli.js audit",
     "kit": "node src/cli.js kit",
     "mcp": "node src/mcp.js",
-    "test": "node --test",
     "skill:install": "node scripts/install-skill.js"
   },
   "engines": {

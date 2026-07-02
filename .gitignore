@@ -1,4 +1,5 @@
 node_modules/
 generated/
+context.md
 .DS_Store
 Thumbs.db
