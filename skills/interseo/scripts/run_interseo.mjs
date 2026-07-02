@@ -43,8 +43,8 @@ if (!repo) {
 }
 
 const pkg = JSON.parse(readFileSync(path.join(repo, 'package.json'), 'utf8'));
-const known = new Set(['source', 'kit']);
-const command = known.has(args[0]) ? args.shift() : 'source';
+const aliases = new Map([['source', 'source'], ['audit', 'source'], ['check', 'source'], ['kit', 'kit'], ['generate', 'kit']]);
+const command = aliases.has(args[0]) ? aliases.get(args.shift()) : 'source';
 const flags = parseFlags(args);
 const target = flags._[0];
 const name = flags.name || flags.siteName || flags._.slice(1).join(' ');
@@ -154,13 +154,16 @@ function usage(exitCode = 1) {
   const print = exitCode === 0 ? console.log : console.error;
   print(`interseo ${pkg.version} skill runner
 
-Usage: node scripts/run_interseo.mjs [source|kit] <folder|url> [flags]
+Usage: node scripts/run_interseo.mjs [source|audit|check|kit|generate] <folder|url> [flags]
 
 This runner calls interseo modules directly. It does not start a dev server, browser, crawler, or live URL check.
 
 Actions:
   source   run Site Audit on local HTML files (default)
+  audit    alias for source
+  check    alias for source
   kit      generate the SEO Starter Kit for a URL
+  generate alias for kit
 
 Source flags:
   --base <url>              base URL used to resolve absolute internal links

@@ -10,7 +10,7 @@ There is no public CLI. The skill runner calls the source audit and kit modules 
 ## Skill Runner
 
 ```powershell
-node scripts/run_interseo.mjs [source|kit] <folder|url> [flags]
+node scripts/run_interseo.mjs [source|audit|check|kit|generate] <folder|url> [flags]
 ```
 
 If no action is given, `source` runs.
@@ -18,7 +18,10 @@ If no action is given, `source` runs.
 | Action | Human name | What it does |
 | --- | --- | --- |
 | `source` | Site Audit | Audits local HTML files from disk |
+| `audit` | Site Audit | Alias for `source` |
+| `check` | Site Audit | Alias for `source` |
 | `kit` | SEO Starter Kit | Generates SEO files for a URL |
+| `generate` | SEO Starter Kit | Alias for `kit` |
 
 ### `source` Flags
 
