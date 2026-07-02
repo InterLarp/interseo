@@ -1,14 +1,13 @@
-# Servidor MCP
+﻿# Servidor MCP
 
-`src/mcp.js` expone interseo como servidor MCP por stdio (JSON-RPC, protocolo `2025-06-18`). Sin dependencias: cualquier cliente MCP lo lanza con Node. Ninguna herramienta toca la red.
+`src/mcp.js` expone interseo como servidor MCP por stdio. No usa red ni dependencias externas.
 
-Los fallos al ejecutar una herramienta se devuelven dentro del resultado con `isError: true` (como indica el spec MCP); las herramientas o métodos desconocidos devuelven errores JSON-RPC (`-32602` / `-32601`).
+Los errores devueltos por las herramientas siguen el formato MCP: la respuesta incluye `isError: true` cuando corresponde.
 
 ## Arranque
 
 ```powershell
 npm run mcp
-# o directamente
 node src/mcp.js
 ```
 
@@ -27,45 +26,55 @@ Configuración típica del cliente:
 
 ## Flujo recomendado
 
-1. `audit_source` sobre la carpeta con el HTML del proyecto.
-2. Editar los archivos que señalan los checks con status `fail`/`warn` (el `fixPrompt` del resultado los lista).
-3. `generate_seo_kit` para crear lo que falte (robots, sitemap, JSON-LD, legales).
-4. `audit_source` de nuevo para comparar el score.
+1. Ejecuta `audit_source` sobre la carpeta con el HTML publicable.
+2. Corrige los archivos que aparecen en `priority` y en `fixPrompt`.
+3. Usa `generate_seo_kit` para crear lo que falte: robots, sitemap, JSON-LD, legales.
+4. Vuelve a ejecutar `audit_source` y compara la puntuación.
 
 ## Herramientas
 
 ### `audit_source`
 
-Audita el código fuente local de un sitio (carpeta con HTML) sin acceso a red. Los hallazgos señalan rutas de archivo reales.
+Audita una carpeta con HTML y devuelve hallazgos con rutas de archivo reales.
 
-| Parámetro | Tipo | Descripción |
-| --- | --- | --- |
-| `dir` (requerido) | string | Carpeta con el HTML publicable (`dist/`, `public/`, o la raíz) |
-| `baseUrl` | string | URL del sitio para resolver enlaces absolutos internos |
-| `pageLimit` | number | Máximo de archivos HTML a analizar (200 por defecto) |
+Parámetros:
 
-Devuelve: `score` (0-100) y `grade`, `checks` y `priority` (con `evidence` y `recommendation`), `totals` por carencia, `brokenLinks` con archivo de origen, `sitemapMissingFiles` (URLs del sitemap sin archivo correspondiente), `pages` (análisis por página), `fixPrompt` (prompt de arreglo con rutas) y `report` (Markdown).
+- `dir` obligatorio: carpeta con el HTML publicable
+- `baseUrl`: URL del sitio para resolver enlaces internos absolutos
+- `pageLimit`: máximo de páginas HTML a analizar, por defecto 200
+
+Devuelve:
+
+- `score` y `grade`
+- `checks` y `priority`
+- `totals`
+- `brokenLinks`
+- `sitemapMissingFiles`
+- `orphanPages`
+- `pages`
+- `fixPrompt`
+- `report`
 
 ### `generate_seo_kit`
 
-Genera los archivos SEO para una URL: robots.txt, sitemap.xml, snippet de head, JSON-LD (Organization + WebSite), checklist de Search Console, plantillas legales, `llms.txt`, `humans.txt`, `security.txt` y config MCP.
+Genera los archivos SEO para una URL: robots.txt, sitemap.xml, snippet de head, JSON-LD, checklist de Search Console, plantillas legales, `llms.txt`, `humans.txt`, `security.txt` y configuración MCP.
 
-| Parámetro | Tipo | Descripción |
-| --- | --- | --- |
-| `url` (requerido) | string | URL canónica del sitio |
-| `siteName` | string | Nombre del sitio; si se omite, se usa el dominio |
-| `description` | string | Descripción corta del sitio |
-| `businessName` | string | Nombre legal del negocio |
-| `lang` | string | Código de idioma para los datos estructurados de WebSite |
-| `discoveredUrls` | string[] | URLs del mismo origen para incluir en el sitemap |
+Parámetros:
 
-Devuelve: `{ siteName, origin, generatedAt, files[] }` donde cada archivo es `{ path, language, content }`.
+- `url` obligatorio: URL canónica del sitio
+- `siteName`: nombre del sitio
+- `description`: descripción corta
+- `businessName`: nombre legal del negocio
+- `lang`: código de idioma para WebSite
+- `discoveredUrls`: URLs del mismo origen para incluir en el sitemap
+
+Devuelve `{ siteName, origin, generatedAt, files[] }`, donde cada archivo contiene `{ path, language, content }`.
 
 ### `analyze_html`
 
 Analiza HTML en bruto: metadatos, headings, enlaces, imágenes, JSON-LD, Open Graph, Twitter Cards, hreflang y mixed content.
 
-| Parámetro | Tipo | Descripción |
-| --- | --- | --- |
-| `html` (requerido) | string | Código fuente HTML |
-| `url` (requerido) | string | URL de la página, para resolver enlaces relativos |
+Parámetros:
+
+- `html` obligatorio: código fuente HTML
+- `url` obligatorio: URL de la página para resolver enlaces relativos

@@ -1,59 +1,57 @@
-# Referencia del CLI
+﻿# Referencia del CLI
 
-El CLI es la capa mínima que usan la skill y los scripts. Se ejecuta desde la raíz del repo con Node 20+.
+El CLI es la interfaz mínima de interseo. Se ejecuta desde la raíz del repo con Node 20 o superior.
 
 ```powershell
 node src/cli.js [comando] <carpeta|url> [flags]
 ```
 
-Si no se indica comando, se ejecuta `source`.
+Si no indicas comando, se ejecuta `source`.
 
 ## Comandos
 
-### `source` (por defecto)
+### `source`
 
-Audita el código fuente local de un sitio — una carpeta con HTML — sin acceso a red. Los hallazgos referencian archivos reales del proyecto.
+Audita una carpeta local con HTML y devuelve un informe orientado a SEO técnico. El análisis no usa red.
 
 ```powershell
 node src/cli.js source ./dist --base https://tudominio.com
-node src/cli.js ./public                # source implicito
+node src/cli.js ./public
 node src/cli.js source . --prompt
 node src/cli.js source ./dist --json
 ```
 
-| Flag | Descripción |
-| --- | --- |
-| `--base <url>` | URL del sitio para resolver enlaces absolutos internos (por defecto `https://example.com`) |
-| `--limit <n>` | Máximo de archivos HTML a analizar (por defecto 200) |
-| `--prompt` | Imprime un prompt de arreglo con las rutas de archivo a editar |
-| `--json` | Imprime el resultado completo como JSON |
+Flags:
 
-Revisa por página: title, description, H1, lang, viewport, canonical, noindex, alt de imágenes, thin content y mixed content. Por proyecto: robots.txt, sitemap.xml, páginas legales, contacto, duplicados entre páginas y enlaces internos que apuntan a archivos inexistentes.
+- `--base <url>`: base para resolver enlaces internos absolutos
+- `--limit <n>`: máximo de archivos HTML a analizar, por defecto 200
+- `--prompt`: imprime un prompt con los archivos y problemas prioritarios
+- `--json`: imprime el resultado completo como JSON
+
+El informe incluye title, description, H1, `lang`, viewport, canonical, noindex, imágenes sin alt, contenido delgado y mixed content. A nivel de proyecto revisa robots.txt, sitemap.xml, páginas legales, contacto, duplicados, páginas huérfanas y enlaces rotos.
 
 ### `kit`
 
-Genera el kit de archivos SEO para una URL, sin red. Devuelve el kit como JSON; con `--save` lo escribe a disco.
+Genera el kit SEO para una URL. Devuelve el kit como JSON y, si usas `--save`, lo escribe a disco.
 
 ```powershell
 node src/cli.js kit tudominio.com --save
 node src/cli.js kit tudominio.com --description "Tienda de cerámica" --lang es --save
 ```
 
-| Flag | Descripción |
-| --- | --- |
-| `--save` | Escribe los archivos generados a disco |
-| `--out <dir>` | Carpeta de salida (por defecto `generated/<sitio>`) |
-| `--name <nombre>` | Nombre del sitio |
-| `--description <texto>` | Descripción corta |
-| `--businessName <nombre>` | Nombre legal para las plantillas |
-| `--lang <código>` | Idioma para los datos estructurados de WebSite |
-| `--urls <lista>` | URLs conocidas (separadas por comas) para el sitemap |
+Flags:
+
+- `--save`: guarda los archivos generados
+- `--out <dir>`: carpeta de salida, por defecto `generated/<sitio>`
+- `--name <nombre>`: nombre del sitio
+- `--description <texto>`: descripción corta
+- `--businessName <nombre>`: nombre legal para las plantillas
+- `--lang <código>`: idioma para los datos estructurados
+- `--urls <lista>`: URLs conocidas separadas por comas para el sitemap
 
 ## Flags generales
 
-| Flag | Descripción |
-| --- | --- |
-| `--help`, `-h` | Ayuda completa |
-| `--version` | Versión |
+- `--help`, `-h`: muestra esta ayuda
+- `--version`: muestra la versión
 
-Los flags booleanos (`--save`, `--json`, `--prompt`) nunca consumen el siguiente argumento. El informe va por `stdout` y los avisos por `stderr`; el código de salida es `1` si falta el objetivo o la auditoría falla.
+Los flags booleanos no consumen el siguiente argumento. El informe va por `stdout`, los errores por `stderr` y el código de salida es `1` si falta el objetivo o la auditoría falla.

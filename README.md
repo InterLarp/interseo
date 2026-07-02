@@ -1,31 +1,32 @@
-# interseo
+﻿# interseo
 
-Auditor de SEO técnico que analiza el **código fuente** de un sitio web — una carpeta con HTML — sin tocar la red. Pensado para agentes: cada hallazgo señala el archivo concreto que hay que editar, así que un agente puede auditar, arreglar y volver a auditar hasta dejarlo limpio. Ideal antes del deploy, en CI, o cuando el sitio aún no está publicado.
+interseo audita el SEO técnico del código fuente de un sitio web sin salir a la red. Analiza una carpeta con HTML, detecta problemas reales en archivos reales y devuelve una prioridad clara para corregirlos.
 
-Se usa de dos formas:
+Está pensado para dos usos:
 
-- **Skill** — versionada en `skills/interseo`, portable: cualquier agente puede copiarla y usarla (se auto-descarga el motor si hace falta).
-- **Servidor MCP** — tres herramientas para cualquier cliente MCP.
+- como CLI local para revisar un build estático antes de publicar
+- como servidor MCP para integrarlo en otros flujos o agentes
 
-No tiene dependencias: solo Node 20 o superior.
+No tiene dependencias. Solo necesitas Node 20 o superior.
 
 ## Qué revisa
 
 Por página HTML:
 
-- `title`, meta description, H1, `lang`, viewport, canonical, `noindex`
-- Imágenes sin `alt`, thin content (menos de 120 palabras), mixed content
-- JSON-LD, Open Graph y favicon en la home
+- `title`, meta description, H1, `lang`, viewport, canonical y noindex
+- imágenes sin `alt`, contenido delgado y mixed content
+- JSON-LD, Open Graph, Twitter Cards, favicon y charset
+- enlaces internos y externos detectados en el HTML
 
 Por proyecto:
 
-- `robots.txt` presente y sin bloqueo global
-- `sitemap.xml` presente, válido y **con URLs que corresponden a archivos reales**
-- Páginas legales (privacidad, cookies, aviso legal) y de contacto
-- **Enlaces internos rotos comprobados contra los archivos reales** (`/blog/` → ¿existe `blog/index.html`?)
-- Titles y descriptions duplicados entre páginas, redirecciones `meta refresh`
-
-Devuelve puntuación 0-100 con nota (Excelente / Bueno / Mejorable / Crítico), los problemas ordenados por prioridad y un prompt de arreglo con las rutas de archivo a editar.
+- `robots.txt` y `sitemap.xml`
+- URLs del sitemap que correspondan a archivos existentes
+- páginas legales y de contacto
+- enlaces internos rotos contra el árbol real del proyecto
+- páginas huérfanas que no reciben enlaces ni aparecen en el sitemap
+- titles y descriptions duplicados
+- redirecciones `meta refresh`
 
 ## Uso rápido
 
@@ -34,81 +35,76 @@ git clone https://github.com/InterLarp/interseo
 cd interseo
 
 node src/cli.js source ./dist --base https://tudominio.com
-node src/cli.js source ./public --prompt     # prompt de arreglo con rutas
-node src/cli.js source . --json              # resultado completo
+node src/cli.js source ./public --prompt
+node src/cli.js source . --json
 ```
 
-`source` es el comando por defecto: `node src/cli.js ./dist` también funciona.
+Si omites el comando, el CLI ejecuta `source`.
 
-## Servidor MCP
+## CLI
+
+Consulta la referencia completa en [docs/cli.md](docs/cli.md).
+
+Ejemplos:
 
 ```powershell
-npm run mcp
+node src/cli.js source ./dist --base https://tudominio.com
+node src/cli.js source ./public --prompt
+node src/cli.js kit tudominio.com --save
 ```
 
-Configuración del cliente (ajusta la ruta al repo):
+## MCP
 
-```json
-{
-  "mcpServers": {
-    "interseo": {
-      "command": "node",
-      "args": ["<ruta-al-repo>/src/mcp.js"]
-    }
-  }
-}
-```
+El servidor MCP expone tres herramientas:
 
-| Herramienta | Qué hace |
-| --- | --- |
-| `audit_source` | Audita una carpeta con HTML sin red; hallazgos con rutas de archivo |
-| `generate_seo_kit` | Genera robots.txt, sitemap.xml, JSON-LD, legales y más |
-| `analyze_html` | Analiza HTML en bruto |
+- `audit_source`
+- `generate_seo_kit`
+- `analyze_html`
 
-El flujo natural: `audit_source` → arreglar los archivos señalados → `generate_seo_kit` para lo que falte → `audit_source` de nuevo para confirmar. Detalles en [docs/mcp.md](docs/mcp.md).
+Consulta [docs/mcp.md](docs/mcp.md) para el esquema de entrada y salida, y para el flujo recomendado de auditoría y corrección.
 
 ## Skill para agentes
 
-La skill vive en `skills/interseo` y es portable: su runner localiza el motor por `INTERSEO_HOME`, por la estructura del repo, o clonándolo automáticamente en `~/.interseo/repo` la primera vez (necesita git).
-
-```powershell
-# desde la carpeta de la skill, en cualquier máquina con Node 20
-node scripts/run_interseo.mjs source ./dist --base https://tudominio.com
-```
-
-Para instalarla en Codex:
+La skill portable vive en [skills/interseo](skills/interseo) y puede instalarse con:
 
 ```powershell
 npm run skill:install
 ```
 
+También puedes ejecutar el runner desde la carpeta de la skill:
+
+```powershell
+node scripts/run_interseo.mjs source ./dist --base https://tudominio.com
+```
+
 ## Kit generado
 
-`generate_seo_kit` (o `node src/cli.js kit tudominio.com --save`) produce los archivos que el audit suele echar en falta:
+`node src/cli.js kit tudominio.com --save` genera archivos SEO habituales:
 
-```
-robots.txt                sitemap.xml
-seo-head-snippet.html     structured-data.jsonld
-llms.txt                  humans.txt
-.well-known/security.txt  google-site-verification.html
-google-search-console-checklist.md
-legal/                    plantillas de privacidad, cookies y aviso legal
-```
+- `robots.txt`
+- `sitemap.xml`
+- `seo-head-snippet.html`
+- `structured-data.jsonld`
+- `google-search-console-checklist.md`
+- `llms.txt`
+- `humans.txt`
+- `.well-known/security.txt`
+- `legal/` con plantillas de privacidad, cookies y aviso legal
 
-Las plantillas de `legal/` son orientativas: revísalas con datos reales y criterio legal antes de publicarlas.
+Las plantillas legales son orientativas. Revísalas con datos reales antes de publicarlas.
 
-## Estructura del proyecto
+## Estructura
 
-```
-src/source-auditor.js      auditoría de código fuente
-src/analyzer.js            análisis HTML, robots y sitemaps
-src/kit.js                 generación del kit de archivos
-src/cli.js                 CLI mínimo (source y kit)
-src/mcp.js                 servidor MCP por stdio
-skills/interseo/           skill portable para agentes
-docs/                      referencia de CLI y MCP
+```text
+src/analyzer.js         análisis HTML, robots y sitemap
+src/source-auditor.js   auditoría del árbol de archivos
+src/kit.js              generación del kit SEO
+src/cli.js              CLI mínima
+src/mcp.js              servidor MCP por stdio
+docs/                   referencia de uso
+skills/interseo/        skill portable
 ```
 
 ## Licencia
 
-Gratis para uso personal, educativo, de investigación y de organizaciones sin ánimo de lucro, bajo [PolyForm Noncommercial 1.0.0](LICENSE). Puedes usarlo, modificarlo y compartirlo libremente mientras no sea con fines comerciales. Para uso comercial, contacta con el autor.
+PolyForm Noncommercial 1.0.0. Revisa [LICENSE](LICENSE) para los detalles completos.

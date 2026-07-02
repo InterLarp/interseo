@@ -1,4 +1,4 @@
-import { readdir, readFile } from 'node:fs/promises';
+﻿import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   analyzeHtml,
@@ -39,7 +39,8 @@ const SOURCE_CHECKS = [
   { id: 'legal_pages', category: 'Confianza', max: 4 },
   { id: 'contact_page', category: 'Confianza', max: 2 },
   { id: 'mixed_content', category: 'Confianza', max: 3 },
-  { id: 'broken_links', category: 'Enlaces', max: 6 }
+  { id: 'broken_links', category: 'Enlaces', max: 6 },
+  { id: 'orphan_pages', category: 'Enlaces', max: 3 }
 ];
 
 export async function auditSource(input) {
@@ -70,13 +71,18 @@ export async function auditSource(input) {
 
   const brokenLinks = findBrokenLinks(pages, fileSet, baseUrl);
   const sitemapMissingFiles = findSitemapMissingFiles(sitemap.urls, fileSet);
-  const totals = buildTotals(pages, brokenLinks, sitemapMissingFiles);
+  const referenced = collectReferencedFiles(pages, sitemap.urls, fileSet, baseUrl);
+  const orphanPages = pages
+    .filter((page) => page !== home && !referenced.has(page.file.toLowerCase()))
+    .map((page) => page.file);
+  const totals = buildTotals(pages, brokenLinks, sitemapMissingFiles, orphanPages);
   const checks = buildSourceChecks({
     pages,
     home,
     totals,
     brokenLinks,
     sitemapMissingFiles,
+    orphanPages,
     hasRobots: fileSet.has('robots.txt'),
     robots,
     sitemapFile,
@@ -105,6 +111,7 @@ export async function auditSource(input) {
     totals,
     brokenLinks: brokenLinks.slice(0, 50),
     sitemapMissingFiles: sitemapMissingFiles.slice(0, 50),
+    orphanPages: orphanPages.slice(0, 50),
     pages: pages.map(({ links, ...page }) => page),
     robots: { exists: fileSet.has('robots.txt'), blocksAll: robots.blocksAll, sitemaps: robots.sitemaps },
     sitemap: { file: sitemapFile, isSitemap: sitemap.isSitemap, urlCount: sitemap.urls.length }
@@ -220,20 +227,41 @@ function findBrokenLinks(pages, fileSet, baseUrl) {
   return broken;
 }
 
-function pathExistsInSource(pathname, fileSet) {
+function resolveSourcePath(pathname, fileSet) {
   const clean = pathname.replace(/^\/+/, '').replace(/\/+$/, '').toLowerCase();
-  if (!clean) return fileSet.has('index.html') || fileSet.has('index.htm');
-  const candidates = [
-    clean,
-    `${clean}/index.html`,
-    `${clean}/index.htm`,
-    `${clean}.html`,
-    `${clean}.htm`
-  ];
-  return candidates.some((candidate) => fileSet.has(candidate));
+  const candidates = clean
+    ? [clean, `${clean}/index.html`, `${clean}/index.htm`, `${clean}.html`, `${clean}.htm`]
+    : ['index.html', 'index.htm'];
+  return candidates.find((candidate) => fileSet.has(candidate)) || '';
 }
 
-function buildTotals(pages, brokenLinks, sitemapMissingFiles) {
+function pathExistsInSource(pathname, fileSet) {
+  return Boolean(resolveSourcePath(pathname, fileSet));
+}
+
+function collectReferencedFiles(pages, sitemapUrls, fileSet, baseUrl) {
+  const origin = new URL(baseUrl).origin;
+  const referenced = new Set();
+  const add = (raw) => {
+    let url;
+    try {
+      url = new URL(raw);
+    } catch {
+      return;
+    }
+    if (url.origin !== origin) return;
+    const match = resolveSourcePath(decodeURIComponent(url.pathname), fileSet);
+    if (match) referenced.add(match);
+  };
+
+  for (const page of pages) {
+    for (const link of page.links || []) add(link.url);
+  }
+  for (const raw of sitemapUrls) add(raw);
+  return referenced;
+}
+
+function buildTotals(pages, brokenLinks, sitemapMissingFiles, orphanPages) {
   return {
     pages: pages.length,
     missingTitle: pages.filter((page) => !page.title).length,
@@ -248,14 +276,19 @@ function buildTotals(pages, brokenLinks, sitemapMissingFiles) {
     thinContent: pages.filter((page) => page.wordCount < 120).length,
     imagesMissingAlt: pages.reduce((sum, page) => sum + page.imagesMissingAlt, 0),
     mixedContent: pages.reduce((sum, page) => sum + page.mixedContent, 0),
-    duplicateTitles: findDuplicates(pages.map((page) => page.title).filter(Boolean)).reduce((sum, item) => sum + item.count, 0),
-    duplicateDescriptions: findDuplicates(pages.map((page) => page.description).filter(Boolean)).reduce((sum, item) => sum + item.count, 0),
+    duplicateTitles: countDuplicateInstances(pages.map((page) => page.title)),
+    duplicateDescriptions: countDuplicateInstances(pages.map((page) => page.description)),
     brokenInternalLinks: brokenLinks.length,
-    sitemapMissingFiles: sitemapMissingFiles.length
+    sitemapMissingFiles: sitemapMissingFiles.length,
+    orphanPages: orphanPages.length
   };
 }
 
-function buildSourceChecks({ pages, home, totals, brokenLinks, sitemapMissingFiles, hasRobots, robots, sitemapFile, sitemap, files }) {
+function countDuplicateInstances(values) {
+  return findDuplicates(values.filter(Boolean)).reduce((sum, item) => sum + item.count - 1, 0);
+}
+
+function buildSourceChecks({ pages, home, totals, brokenLinks, sitemapMissingFiles, orphanPages, hasRobots, robots, sitemapFile, sitemap, files }) {
   const total = pages.length || 1;
   const legalPattern = /(privacidad|privacy|cookies|aviso-?legal|terminos|terms|legal)/i;
   const contactPattern = /(contacto|contact|about|sobre-?nosotros|quienes-?somos)/i;
@@ -383,7 +416,10 @@ function buildSourceChecks({ pages, home, totals, brokenLinks, sitemapMissingFil
       `${totals.mixedContent} recurso(s) http:// detectados`, 'Sirve todos los recursos por HTTPS o con rutas relativas.'),
     scaled('broken_links', totals.brokenInternalLinks, 'Enlaces internos apuntan a archivos existentes',
       brokenLinks.length ? `${brokenLinks.length} enlace(s) rotos, ej: ${brokenLinks[0].file} -> ${brokenLinks[0].target}` : '0 enlaces rotos',
-      'Corrige los enlaces internos que apuntan a rutas sin archivo correspondiente.')
+      'Corrige los enlaces internos que apuntan a rutas sin archivo correspondiente.'),
+    scaled('orphan_pages', totals.orphanPages, 'Sin paginas huerfanas',
+      orphanPages.length ? `${orphanPages.length} pagina(s) sin ningun enlace ni entrada en el sitemap, ej: ${orphanPages[0]}` : '0 paginas huerfanas',
+      'Enlaza las paginas huerfanas desde la navegacion o el contenido, o anadelas al sitemap; si no deben publicarse, retiralas.')
   ];
 }
 
@@ -463,6 +499,14 @@ function buildSourceMarkdown(result) {
   lines.push(`- Enlaces internos rotos: ${totals.brokenInternalLinks}`);
   lines.push(`- URLs del sitemap sin archivo: ${totals.sitemapMissingFiles}`);
   lines.push(`- Paginas con meta refresh: ${totals.metaRefresh}`);
+  lines.push(`- Paginas huerfanas: ${totals.orphanPages}`);
+
+  if (result.orphanPages.length) {
+    lines.push('', '## Paginas huerfanas', '');
+    for (const file of result.orphanPages.slice(0, 20)) {
+      lines.push(`- ${file}`);
+    }
+  }
 
   if (result.sitemapMissingFiles.length) {
     lines.push('', '## URLs del sitemap sin archivo', '');
@@ -481,3 +525,4 @@ function buildSourceMarkdown(result) {
   lines.push('', cleanText('El prompt de arreglo esta en fixPrompt e indica archivos concretos a editar.'), '');
   return lines.join('\n');
 }
+
