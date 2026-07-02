@@ -1,6 +1,6 @@
 {
   "name": "interseo",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "CLI, MCP y skill interseo para auditar SEO tecnico, DNS e indexacion.",
   "license": "MIT",
   "type": "module",

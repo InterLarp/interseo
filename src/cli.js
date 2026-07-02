@@ -32,15 +32,15 @@ try {
       linkProbeLimit
     });
 
+    if (flags.save) {
+      const dir = await saveFiles(result.kit.files, flags.out || `generated/${safeSlug(result.kit.siteName)}`);
+      console.error(`Kit guardado en ${dir}`);
+    }
+
     if (command === 'prompt' || flags.prompt) {
       const promptType = flags.prompt === 'mcp' ? 'mcp' : flags.prompt === 'direct' ? 'direct' : 'skill';
       console.log(result.fixPrompts[promptType]);
       process.exit(0);
-    }
-
-    if (flags.save) {
-      const dir = await saveFiles(result.kit.files, flags.out || `generated/${safeSlug(result.kit.siteName)}`);
-      console.error(`Kit guardado en ${dir}`);
     }
 
     if (flags.json) {

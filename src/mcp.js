@@ -46,7 +46,9 @@ const tools = [
       properties: {
         url: { type: 'string', description: 'Website URL to audit before generating the prompt.' },
         mode: { type: 'string', enum: ['skill', 'mcp', 'direct'], description: 'Prompt style to return. Default skill.' },
-        audit: { type: 'object', description: 'Optional audit result. If provided, no new crawl is needed.' }
+        audit: { type: 'object', description: 'Optional audit result. If provided, no new crawl is needed.' },
+        crawlLimit: { type: 'number', description: 'Maximum same-origin pages to crawl when auditing. Default 5, max 40.' },
+        linkProbeLimit: { type: 'number', description: 'Maximum internal URLs to probe when auditing. Default 12.' }
       }
     }
   },

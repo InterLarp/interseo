@@ -74,7 +74,7 @@ npm run skill:install
 La auditoría puntúa por categorías y da una nota global (Excelente / Bueno / Mejorable / Crítico):
 
 - **Infra** — resolución DNS y latencia, A/AAAA, IPv6, nameservers, SPF y DMARC.
-- **Rastreo** — home accesible por HTTPS, redirects, `robots.txt`, bloqueos globales y sitemap.
+- **Rastreo** — home accesible por HTTPS, redirects, `robots.txt`, bloqueos globales y sitemap (incluidos índices de sitemaps).
 - **Contenido** — `title`, meta description, canonical, viewport, idioma, H1, enlaces internos e imágenes sin `alt`.
 - **Indexación** — `noindex`, `X-Robots-Tag`, JSON-LD, Open Graph, Twitter Cards, hreflang y favicon.
 - **Confianza** — política de privacidad, cookies, aviso legal, página de contacto y mixed content.

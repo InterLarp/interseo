@@ -74,6 +74,8 @@ Returns: `{ siteName, origin, generatedAt, files[] }` where each file is `{ path
 | `url` | string | URL to audit before generating the prompt |
 | `mode` | `skill` \| `mcp` \| `direct` | Prompt style (default `skill`) |
 | `audit` | object | Previous `audit_site` result — skips the new crawl |
+| `crawlLimit` | number | Page limit if a fresh audit is needed (default 5) |
+| `linkProbeLimit` | number | Link probe limit if a fresh audit is needed (default 12) |
 
 Returns: `{ mode, prompt, prompts: {skill, mcp, direct}, issues[] }`.
 

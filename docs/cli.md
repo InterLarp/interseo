@@ -31,6 +31,8 @@ node src/cli.js tudominio.com --prompt=mcp      # usa las tools MCP
 node src/cli.js tudominio.com --prompt=direct   # edición directa del repo
 ```
 
+Se puede combinar con `--save`: guarda el kit y después imprime el prompt.
+
 ### `kit`
 
 Genera el kit de archivos sin rastrear el sitio. Devuelve el kit como JSON; con `--save` lo escribe a disco.

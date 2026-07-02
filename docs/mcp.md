@@ -59,6 +59,8 @@ Devuelve un prompt de arreglo listo para usar. Si se pasa un `audit` previo no v
 | `url` | string | URL a auditar antes de generar el prompt |
 | `mode` | `skill` \| `mcp` \| `direct` | Estilo del prompt (por defecto `skill`) |
 | `audit` | object | Resultado de `audit_site` para reutilizar |
+| `crawlLimit` | number | Límite de páginas si hay que auditar (por defecto 5) |
+| `linkProbeLimit` | number | Límite de probes de enlaces si hay que auditar (por defecto 12) |
 
 ### `analyze_html`
 
