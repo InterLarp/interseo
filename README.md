@@ -20,7 +20,7 @@ npm run skill:install
 
 ## Use It Through MCP
 
-interseo also runs as an MCP server for editors and coding agents that support tool servers.
+interseo also runs as an MCP server for editors and coding agents that support tool servers. The project intentionally has no public CLI; the skill runner calls the audit modules directly.
 
 ```json
 {

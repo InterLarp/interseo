@@ -1,21 +1,26 @@
-# interseo CLI and MCP Reference
+# interseo Skill Runner and MCP Reference
 
-## CLI
+interseo exposes two supported surfaces:
+
+- the portable skill runner in `skills/interseo/scripts/run_interseo.mjs`
+- the MCP server in `src/mcp.js`
+
+There is no public CLI. The skill runner calls the source audit and kit modules directly.
+
+## Skill Runner
 
 ```powershell
-node src/cli.js [command] <folder|url> [flags]
+node scripts/run_interseo.mjs [source|kit] <folder|url> [flags]
 ```
 
-If no command is given, `source` runs.
+If no action is given, `source` runs.
 
-## Commands
-
-| Command | Human name | What it does |
+| Action | Human name | What it does |
 | --- | --- | --- |
-| `source` | Site Audit | Audits a local folder of HTML without network access |
-| `kit` | SEO Starter Kit | Generates SEO files for a URL without network access |
+| `source` | Site Audit | Audits local HTML files from disk |
+| `kit` | SEO Starter Kit | Generates SEO files for a URL |
 
-## `source` Flags
+### `source` Flags
 
 | Flag | Description |
 | --- | --- |
@@ -24,7 +29,7 @@ If no command is given, `source` runs.
 | `--prompt` | Prints a repair prompt listing exact files to edit |
 | `--json` | Prints the full audit result as JSON |
 
-## `kit` Flags
+### `kit` Flags
 
 | Flag | Description |
 | --- | --- |
@@ -36,15 +41,9 @@ If no command is given, `source` runs.
 | `--lang <code>` | Language code for WebSite structured data |
 | `--urls <list>` | Comma-separated URLs for sitemap.xml |
 
-## General Flags
-
-`--help` and `-h` print usage. `--version` prints the version. Boolean flags such as `--save`, `--json`, and `--prompt` never consume the next argument.
-
-Reports go to stdout, notices go to stderr, and exit code `1` means the target is missing or the operation failed.
-
 ## MCP Tools
 
-Server: `node src/mcp.js` over stdio using JSON-RPC protocol `2025-06-18`. No tool touches the network. Tool failures return `isError: true`; unknown tools or methods return JSON-RPC errors.
+Server: `node src/mcp.js` over stdio using JSON-RPC protocol `2025-06-18`. No tool touches the network.
 
 ### `audit_source`
 

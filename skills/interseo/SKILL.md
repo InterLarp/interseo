@@ -20,7 +20,7 @@ Do not start a dev server, browser, preview server, crawler, or live URL check f
 
 ## Commands
 
-From the skill folder:
+From the project you want to audit, call the runner by path. Relative folders are resolved from your current working directory:
 
 ```powershell
 node scripts/run_interseo.mjs source <dir> --base <site-url>
@@ -28,7 +28,7 @@ node scripts/run_interseo.mjs source <dir> --prompt
 node scripts/run_interseo.mjs kit <site-url> --save
 ```
 
-If no local install exists, the runner checks `INTERSEO_HOME`, the repo layout, or clones the engine into `~/.interseo/repo`.
+If no local install exists, the runner checks `INTERSEO_HOME`, the repo layout, or clones the engine into `~/.interseo/repo`. You can also pass absolute paths for the audited folder or output directory.
 
 ## Tools
 
@@ -36,7 +36,7 @@ If no local install exists, the runner checks `INTERSEO_HOME`, the repo layout, 
 - `kit` / SEO Starter Kit: generates SEO files for a site URL
 - `analyze_html` / HTML Snapshot: inspects raw HTML when used through MCP
 
-MCP is an optional integration surface for clients that already use MCP. Do not start the MCP server just to audit a project with this skill.
+MCP is an optional integration surface for clients that already use MCP. Do not start the MCP server just to audit a project with this skill. There is no public CLI; use this skill runner for file-based audits.
 
 ## What It Returns
 
@@ -45,7 +45,7 @@ MCP is an optional integration surface for clients that already use MCP. Do not 
 - score and grade
 - a repair prompt with the exact files to edit
 
-## Good Defaults
+## Reference\n\nDetailed runner and MCP parameters live in `references/skill-runner-and-mcp.md`.\n\n## Good Defaults
 
 - Fix crawl, indexation, and navigation blockers first.
 - Keep changes in the project files; do not rely on live server behavior.
