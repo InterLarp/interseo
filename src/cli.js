@@ -45,7 +45,7 @@ try {
 
     if (flags.save) {
       const dir = await saveFiles(kit.files, flags.out || `generated/${safeSlug(kit.siteName)}`);
-      console.error(`Kit guardado en ${dir}`);
+      console.error(`SEO kit saved to ${dir}`);
     }
 
     console.log(JSON.stringify(kit, null, 2));
@@ -115,36 +115,36 @@ function safeSlug(value) {
 
 function usage(exitCode = 1) {
   const print = exitCode === 0 ? console.log : console.error;
-  print(`interseo ${pkg.version} - auditor SEO de codigo fuente
+  print(`interseo ${pkg.version} - offline SEO audits for source code
 
-Uso: node src/cli.js [comando] <carpeta|url> [flags]
+Usage: node src/cli.js [command] <folder|url> [flags]
 
-Comandos:
-  source   auditar el codigo fuente de un sitio, carpeta con HTML (por defecto)
-  kit      generar robots.txt, sitemap.xml, JSON-LD, legales y mas para una URL
+Commands:
+  source   run Site Audit on a folder with HTML (default)
+  kit      generate the SEO Starter Kit for a URL
 
-Flags de source:
-  --base <url>              base URL para resolver enlaces internos absolutos
-  --limit <n>               maximo de archivos HTML a analizar (200 por defecto)
-  --prompt                  imprimir un prompt de arreglo con rutas de archivo
-  --json                    imprimir el resultado completo como JSON
+Source flags:
+  --base <url>              base URL used to resolve absolute internal links
+  --limit <n>               maximum HTML files to analyze (default 200)
+  --prompt                  print a repair prompt with file paths
+  --json                    print the full result as JSON
 
-Flags de kit:
-  --save                    guardar los archivos generados en disco
-  --out <dir>               carpeta de salida (por defecto generated/<sitio>)
-  --name <nombre>           nombre del sitio
-  --description <texto>     descripcion corta
-  --businessName <nombre>   nombre legal para las plantillas
-  --lang <codigo>           idioma para los datos estructurados
-  --urls <lista>            URLs para el sitemap (separadas por comas)
+Kit flags:
+  --save                    write generated files to disk
+  --out <dir>               output folder (default generated/<site>)
+  --name <name>             site or brand name
+  --description <text>      short site description
+  --businessName <name>     legal or business name for templates
+  --lang <code>             language code for structured data
+  --urls <list>             sitemap URLs, comma-separated
 
-Generales:
-  --help, -h                mostrar esta ayuda
-  --version                 mostrar la version
+General:
+  --help, -h                show this help
+  --version                 show the version
 
-Ejemplos:
-  node src/cli.js source ./dist --base https://tudominio.com
+Examples:
+  node src/cli.js source ./dist --base https://example.com
   node src/cli.js source ./public --prompt
-  node src/cli.js kit tudominio.com --save`);
+  node src/cli.js kit example.com --save`);
   process.exit(exitCode);
 }

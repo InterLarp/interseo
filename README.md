@@ -4,7 +4,7 @@ SEO checks for source code. Built for agents that need to inspect a static site,
 
 interseo works offline. Give it the folder that contains the final HTML and it reports issues with real file paths: missing metadata, weak page structure, broken internal links, sitemap problems, orphan pages, legal gaps, and the SEO files a site usually forgets.
 
-## Use it with an AI agent
+## Use It With an AI Agent
 
 Ask your agent to use the `interseo` skill and make the fixes directly in the repository.
 
@@ -18,7 +18,7 @@ The skill is included in this repo at [skills/interseo](skills/interseo).
 npm run skill:install
 ```
 
-## Use it through MCP
+## Use It Through MCP
 
 interseo also runs as an MCP server for editors and coding agents that support tool servers.
 
@@ -33,22 +33,22 @@ interseo also runs as an MCP server for editors and coding agents that support t
 }
 ```
 
-Tools:
+Human tool names:
 
-- `audit_source` checks a local HTML folder and returns file-level findings
-- `generate_seo_kit` creates robots, sitemap, JSON-LD, legal templates, llms.txt, humans.txt, and security.txt
-- `analyze_html` inspects a single HTML string
+- `audit_source` is **Site Audit**
+- `generate_seo_kit` is **SEO Starter Kit**
+- `analyze_html` is **HTML Snapshot**
 
 Full MCP reference: [docs/mcp.md](docs/mcp.md).
 
-## What it checks
+## What It Checks
 
 - titles, descriptions, H1s, language, viewport, canonical links, and noindex
 - image alt text, thin content, mixed content, Open Graph, Twitter Cards, JSON-LD, favicon, and charset
 - robots.txt, sitemap.xml, sitemap URLs, broken internal links, and orphan pages
 - legal pages, contact pages, duplicate titles, duplicate descriptions, and meta refresh redirects
 
-## What it generates
+## What It Generates
 
 - `robots.txt`
 - `sitemap.xml`
@@ -62,7 +62,7 @@ Full MCP reference: [docs/mcp.md](docs/mcp.md).
 
 Legal templates are starting points. Fill them with real business details before publishing.
 
-## Project map
+## Project Map
 
 ```text
 src/analyzer.js          HTML, robots, and sitemap parsing

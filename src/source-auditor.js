@@ -1,4 +1,4 @@
-﻿import { readdir, readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   analyzeHtml,
@@ -16,31 +16,31 @@ const MAX_FILES = 5000;
 const SKIP_DIRS = new Set(['node_modules', '.git', '.github', '.vscode', '.idea', 'coverage', '__pycache__', '.cache']);
 
 const SOURCE_CHECKS = [
-  { id: 'pages_found', category: 'Rastreo', max: 6 },
-  { id: 'robots_txt', category: 'Rastreo', max: 4 },
-  { id: 'robots_not_blocking', category: 'Rastreo', max: 4 },
-  { id: 'sitemap_file', category: 'Rastreo', max: 6 },
-  { id: 'sitemap_urls_exist', category: 'Rastreo', max: 4 },
-  { id: 'titles_present', category: 'Contenido', max: 5 },
-  { id: 'titles_unique', category: 'Contenido', max: 4 },
-  { id: 'descriptions_present', category: 'Contenido', max: 5 },
-  { id: 'descriptions_unique', category: 'Contenido', max: 3 },
-  { id: 'h1_present', category: 'Contenido', max: 4 },
-  { id: 'lang_declared', category: 'Contenido', max: 3 },
-  { id: 'viewport_present', category: 'Contenido', max: 3 },
-  { id: 'image_alt', category: 'Contenido', max: 3 },
-  { id: 'thin_content', category: 'Contenido', max: 3 },
-  { id: 'canonical_present', category: 'Indexacion', max: 3 },
-  { id: 'noindex_review', category: 'Indexacion', max: 3 },
-  { id: 'no_meta_refresh', category: 'Indexacion', max: 2 },
-  { id: 'structured_data_home', category: 'Indexacion', max: 4 },
-  { id: 'open_graph_home', category: 'Indexacion', max: 3 },
-  { id: 'favicon_home', category: 'Indexacion', max: 2 },
-  { id: 'legal_pages', category: 'Confianza', max: 4 },
-  { id: 'contact_page', category: 'Confianza', max: 2 },
-  { id: 'mixed_content', category: 'Confianza', max: 3 },
-  { id: 'broken_links', category: 'Enlaces', max: 6 },
-  { id: 'orphan_pages', category: 'Enlaces', max: 3 }
+  { id: 'pages_found', category: 'Crawl', max: 6 },
+  { id: 'robots_txt', category: 'Crawl', max: 4 },
+  { id: 'robots_not_blocking', category: 'Crawl', max: 4 },
+  { id: 'sitemap_file', category: 'Crawl', max: 6 },
+  { id: 'sitemap_urls_exist', category: 'Crawl', max: 4 },
+  { id: 'titles_present', category: 'Content', max: 5 },
+  { id: 'titles_unique', category: 'Content', max: 4 },
+  { id: 'descriptions_present', category: 'Content', max: 5 },
+  { id: 'descriptions_unique', category: 'Content', max: 3 },
+  { id: 'h1_present', category: 'Content', max: 4 },
+  { id: 'lang_declared', category: 'Content', max: 3 },
+  { id: 'viewport_present', category: 'Content', max: 3 },
+  { id: 'image_alt', category: 'Content', max: 3 },
+  { id: 'thin_content', category: 'Content', max: 3 },
+  { id: 'canonical_present', category: 'Indexing', max: 3 },
+  { id: 'noindex_review', category: 'Indexing', max: 3 },
+  { id: 'no_meta_refresh', category: 'Indexing', max: 2 },
+  { id: 'structured_data_home', category: 'Indexing', max: 4 },
+  { id: 'open_graph_home', category: 'Indexing', max: 3 },
+  { id: 'favicon_home', category: 'Indexing', max: 2 },
+  { id: 'legal_pages', category: 'Trust', max: 4 },
+  { id: 'contact_page', category: 'Trust', max: 2 },
+  { id: 'mixed_content', category: 'Trust', max: 3 },
+  { id: 'broken_links', category: 'Links', max: 6 },
+  { id: 'orphan_pages', category: 'Links', max: 3 }
 ];
 
 export async function auditSource(input) {
@@ -125,7 +125,7 @@ export async function auditSource(input) {
 async function walkFiles(rootDir, current = '', collected = []) {
   if (collected.length >= MAX_FILES) return collected;
   const entries = await readdir(path.join(rootDir, current), { withFileTypes: true }).catch((error) => {
-    if (!current) throw new Error(`No se puede leer el directorio: ${rootDir} (${error.code || error.message})`);
+    if (!current) throw new Error(`Cannot read directory: ${rootDir} (${error.code || error.message})`);
     return [];
   });
 
@@ -290,8 +290,8 @@ function countDuplicateInstances(values) {
 
 function buildSourceChecks({ pages, home, totals, brokenLinks, sitemapMissingFiles, orphanPages, hasRobots, robots, sitemapFile, sitemap, files }) {
   const total = pages.length || 1;
-  const legalPattern = /(privacidad|privacy|cookies|aviso-?legal|terminos|terms|legal)/i;
-  const contactPattern = /(contacto|contact|about|sobre-?nosotros|quienes-?somos)/i;
+  const legalPattern = /(privacy|cookies|cookie-policy|legal|terms|terms-of-service|notice)/i;
+  const contactPattern = /(contact|about|team|company)/i;
   const hasLegal = files.some((file) => legalPattern.test(file)) || pages.some((page) => legalPattern.test(page.file));
   const hasContact = files.some((file) => contactPattern.test(file));
   const jsonLdUseful = (home?.jsonLdTypes || []).length > 0;
@@ -307,125 +307,125 @@ function buildSourceChecks({ pages, home, totals, brokenLinks, sitemapMissingFil
     makeSourceCheck({
       id: 'pages_found',
       points: pages.length > 0 ? 6 : 0,
-      label: 'Paginas HTML encontradas',
-      evidence: `${pages.length} pagina(s) HTML analizadas`,
-      recommendation: 'Asegurate de auditar la carpeta que contiene el HTML final (por ejemplo dist/ o public/).'
+      label: 'HTML pages found',
+      evidence: `${pages.length} HTML page(s) analyzed`,
+      recommendation: 'Audit the folder that contains the final HTML, such as dist/ or public/.'
     }),
     makeSourceCheck({
       id: 'robots_txt',
       points: hasRobots ? 4 : 0,
-      label: 'robots.txt presente en el proyecto',
-      evidence: hasRobots ? 'robots.txt encontrado' : 'No hay robots.txt en la raiz',
-      recommendation: 'Anade un robots.txt en la raiz publicable con la directiva Sitemap.'
+      label: 'robots.txt is present',
+      evidence: hasRobots ? 'robots.txt found' : 'No robots.txt found at the publish root',
+      recommendation: 'Add robots.txt at the publish root with a Sitemap directive.'
     }),
     makeSourceCheck({
       id: 'robots_not_blocking',
       points: robots.blocksAll ? 0 : 4,
-      label: 'robots.txt no bloquea todo el sitio',
-      evidence: robots.blocksAll ? 'Disallow: / detectado para *' : 'Sin bloqueo global',
-      recommendation: 'Evita Disallow: / global salvo en entornos que no deban indexarse.'
+      label: 'robots.txt does not block the whole site',
+      evidence: robots.blocksAll ? 'Disallow: / found for *' : 'No global block',
+      recommendation: 'Avoid a global Disallow: / unless the environment should not be indexed.'
     }),
     makeSourceCheck({
       id: 'sitemap_file',
       points: sitemapFile && sitemap.isSitemap ? 6 : sitemapFile ? 2 : 0,
-      label: 'sitemap.xml presente y valido',
-      evidence: sitemapFile ? `${sitemapFile} con ${sitemap.urls.length} URL(s)` : 'No hay sitemap*.xml',
-      recommendation: 'Genera un sitemap.xml con las URLs finales del sitio.'
+      label: 'sitemap.xml is present and valid',
+      evidence: sitemapFile ? `${sitemapFile} with ${sitemap.urls.length} URL(s)` : 'No sitemap*.xml found',
+      recommendation: 'Generate a sitemap.xml with the final site URLs.'
     }),
     makeSourceCheck({
       id: 'sitemap_urls_exist',
       points: !sitemapFile ? 0 : sitemapMissingFiles.length === 0 ? 4 : sitemapMissingFiles.length <= 2 ? 2 : 0,
-      label: 'Las URLs del sitemap corresponden a archivos',
+      label: 'Sitemap URLs map to files',
       evidence: sitemapFile
         ? sitemapMissingFiles.length
-          ? `${sitemapMissingFiles.length} URL(s) sin archivo, ej: ${sitemapMissingFiles[0].target}`
-          : 'Todas las URLs del sitemap tienen archivo'
-        : 'Sin sitemap',
-      recommendation: 'Elimina del sitemap las URLs que ya no existen o crea los archivos que faltan.'
+          ? `${sitemapMissingFiles.length} URL(s) without a file, e.g. ${sitemapMissingFiles[0].target}`
+          : 'Every sitemap URL has a matching file'
+        : 'No sitemap',
+      recommendation: 'Remove stale sitemap URLs or create the missing files.'
     }),
-    scaled('titles_present', totals.missingTitle, 'Todas las paginas tienen title',
-      `${totals.missingTitle} de ${total} sin <title>`, 'Anade un title unico y descriptivo a cada pagina.'),
-    scaled('titles_unique', totals.duplicateTitles, 'Titles sin duplicados',
-      `${totals.duplicateTitles} duplicado(s)`, 'Diferencia los titles de paginas distintas.'),
-    scaled('descriptions_present', totals.missingDescription, 'Todas las paginas tienen meta description',
-      `${totals.missingDescription} de ${total} sin description`, 'Anade meta description util a cada pagina indexable.'),
-    scaled('descriptions_unique', totals.duplicateDescriptions, 'Descriptions sin duplicados',
-      `${totals.duplicateDescriptions} duplicado(s)`, 'Evita descriptions repetidas.'),
-    scaled('h1_present', totals.missingH1, 'Todas las paginas tienen H1',
-      `${totals.missingH1} de ${total} sin H1`, 'Incluye un H1 principal por pagina.'),
-    scaled('lang_declared', totals.missingLang, 'Idioma declarado en <html>',
-      `${totals.missingLang} de ${total} sin lang`, 'Declara lang en la etiqueta <html> de cada pagina.'),
-    scaled('viewport_present', totals.missingViewport, 'Viewport movil configurado',
-      `${totals.missingViewport} de ${total} sin viewport`, 'Anade <meta name="viewport" content="width=device-width, initial-scale=1">.'),
-    scaled('image_alt', totals.imagesMissingAlt, 'Imagenes con texto alternativo',
-      `${totals.imagesMissingAlt} imagen(es) sin alt`, 'Anade alt descriptivo a las imagenes informativas.'),
-    scaled('thin_content', totals.thinContent, 'Paginas con contenido suficiente',
-      `${totals.thinContent} de ${total} con menos de 120 palabras`, 'Amplia el contenido de las paginas delgadas o marca noindex si no deben rankear.'),
-    scaled('canonical_present', totals.missingCanonical, 'Canonical definido',
-      `${totals.missingCanonical} de ${total} sin canonical`, 'Anade link rel="canonical" absoluto por pagina.'),
+    scaled('titles_present', totals.missingTitle, 'Every page has a title',
+      `${totals.missingTitle} of ${total} without <title>`, 'Add a unique, descriptive title to each page.'),
+    scaled('titles_unique', totals.duplicateTitles, 'Titles are unique',
+      `${totals.duplicateTitles} duplicate(s)`, 'Make titles distinct across pages.'),
+    scaled('descriptions_present', totals.missingDescription, 'Every page has a meta description',
+      `${totals.missingDescription} of ${total} without description`, 'Add a useful meta description to each indexable page.'),
+    scaled('descriptions_unique', totals.duplicateDescriptions, 'Descriptions are unique',
+      `${totals.duplicateDescriptions} duplicate(s)`, 'Avoid repeated descriptions.'),
+    scaled('h1_present', totals.missingH1, 'Every page has an H1',
+      `${totals.missingH1} of ${total} without H1`, 'Add one main H1 per page.'),
+    scaled('lang_declared', totals.missingLang, 'Language is declared on <html>',
+      `${totals.missingLang} of ${total} without lang`, 'Declare lang on the <html> tag for each page.'),
+    scaled('viewport_present', totals.missingViewport, 'Mobile viewport is configured',
+      `${totals.missingViewport} of ${total} without viewport`, 'Add <meta name="viewport" content="width=device-width, initial-scale=1">.'),
+    scaled('image_alt', totals.imagesMissingAlt, 'Images have alt text',
+      `${totals.imagesMissingAlt} image(s) without alt`, 'Add descriptive alt text to informative images.'),
+    scaled('thin_content', totals.thinContent, 'Pages have enough content',
+      `${totals.thinContent} of ${total} with fewer than 120 words`, 'Expand thin pages or mark them noindex if they should not rank.'),
+    scaled('canonical_present', totals.missingCanonical, 'Canonical is defined',
+      `${totals.missingCanonical} of ${total} without canonical`, 'Add an absolute link rel="canonical" for each page.'),
     makeSourceCheck({
       id: 'noindex_review',
       points: totals.noindex === 0 ? 3 : 1,
-      label: 'Sin noindex inesperados',
-      evidence: `${totals.noindex} pagina(s) con noindex`,
-      recommendation: 'Verifica que cada noindex sea intencional antes de publicar.'
+      label: 'No unexpected noindex tags',
+      evidence: `${totals.noindex} page(s) with noindex`,
+      recommendation: 'Confirm every noindex is intentional before publishing.'
     }),
     makeSourceCheck({
       id: 'no_meta_refresh',
       points: totals.metaRefresh === 0 ? 2 : 0,
-      label: 'Sin redirecciones meta refresh',
-      evidence: `${totals.metaRefresh} pagina(s) con meta refresh`,
-      recommendation: 'Sustituye los meta refresh por redirecciones 301 del servidor o enlaces normales.'
+      label: 'No meta refresh redirects',
+      evidence: `${totals.metaRefresh} page(s) with meta refresh`,
+      recommendation: 'Replace meta refresh with server-side 301 redirects or normal links.'
     }),
     makeSourceCheck({
       id: 'structured_data_home',
       points: jsonLdUseful ? 4 : 0,
-      label: 'Datos estructurados en la home',
-      evidence: home?.jsonLdTypes?.length ? home.jsonLdTypes.join(', ') : 'Sin JSON-LD en la home',
-      recommendation: 'Incluye JSON-LD de Organization o WebSite en la home.'
+      label: 'Structured data on the home page',
+      evidence: home?.jsonLdTypes?.length ? home.jsonLdTypes.join(', ') : 'No JSON-LD on the home page',
+      recommendation: 'Add Organization or WebSite JSON-LD to the home page.'
     }),
     makeSourceCheck({
       id: 'open_graph_home',
       points: home?.hasOpenGraph ? 3 : 0,
-      label: 'Open Graph en la home',
-      evidence: home?.hasOpenGraph ? 'Open Graph detectado' : 'Faltan metadatos og:* en la home',
-      recommendation: 'Anade og:title, og:description y og:image a la home.'
+      label: 'Open Graph on the home page',
+      evidence: home?.hasOpenGraph ? 'Open Graph found' : 'Missing og:* metadata on the home page',
+      recommendation: 'Add og:title, og:description, and og:image to the home page.'
     }),
     makeSourceCheck({
       id: 'favicon_home',
       points: home?.favicon ? 2 : 0,
-      label: 'Favicon enlazado en la home',
-      evidence: home?.favicon || 'Sin favicon detectado',
-      recommendation: 'Enlaza un favicon con <link rel="icon">.'
+      label: 'Favicon linked on the home page',
+      evidence: home?.favicon || 'No favicon found',
+      recommendation: 'Link a favicon with <link rel="icon">.'
     }),
     makeSourceCheck({
       id: 'legal_pages',
       points: hasLegal ? 4 : 0,
-      label: 'Paginas legales presentes',
-      evidence: hasLegal ? 'Archivos legales detectados' : 'Sin privacidad/cookies/aviso legal',
-      recommendation: 'Anade politica de privacidad, cookies y aviso legal antes de publicar.'
+      label: 'Legal pages are present',
+      evidence: hasLegal ? 'Legal files found' : 'No privacy, cookie, or legal pages found',
+      recommendation: 'Add privacy, cookie, and legal pages before publishing.'
     }),
     makeSourceCheck({
       id: 'contact_page',
       points: hasContact ? 2 : 0,
-      label: 'Pagina de contacto o sobre nosotros',
-      evidence: hasContact ? 'Detectada' : 'No detectada',
-      recommendation: 'Incluye una pagina de contacto con datos reales.'
+      label: 'Contact or about page',
+      evidence: hasContact ? 'Found' : 'Not found',
+      recommendation: 'Add a contact page with real details.'
     }),
-    scaled('mixed_content', totals.mixedContent, 'Sin recursos HTTP en paginas HTTPS',
-      `${totals.mixedContent} recurso(s) http:// detectados`, 'Sirve todos los recursos por HTTPS o con rutas relativas.'),
-    scaled('broken_links', totals.brokenInternalLinks, 'Enlaces internos apuntan a archivos existentes',
-      brokenLinks.length ? `${brokenLinks.length} enlace(s) rotos, ej: ${brokenLinks[0].file} -> ${brokenLinks[0].target}` : '0 enlaces rotos',
-      'Corrige los enlaces internos que apuntan a rutas sin archivo correspondiente.'),
-    scaled('orphan_pages', totals.orphanPages, 'Sin paginas huerfanas',
-      orphanPages.length ? `${orphanPages.length} pagina(s) sin ningun enlace ni entrada en el sitemap, ej: ${orphanPages[0]}` : '0 paginas huerfanas',
-      'Enlaza las paginas huerfanas desde la navegacion o el contenido, o anadelas al sitemap; si no deben publicarse, retiralas.')
+    scaled('mixed_content', totals.mixedContent, 'No HTTP resources on HTTPS pages',
+      `${totals.mixedContent} http:// resource(s) found`, 'Serve every resource over HTTPS or with relative URLs.'),
+    scaled('broken_links', totals.brokenInternalLinks, 'Internal links point to existing files',
+      brokenLinks.length ? `${brokenLinks.length} broken link(s), e.g. ${brokenLinks[0].file} -> ${brokenLinks[0].target}` : '0 broken links',
+      'Fix internal links that point to routes without matching files.'),
+    scaled('orphan_pages', totals.orphanPages, 'No orphan pages',
+      orphanPages.length ? `${orphanPages.length} page(s) without links or sitemap entries, e.g. ${orphanPages[0]}` : '0 orphan pages',
+      'Link orphan pages from navigation or content, add them to the sitemap, or remove them if they should not be published.')
   ];
 }
 
 function makeSourceCheck({ id, points, label, evidence, recommendation }) {
   const definition = SOURCE_CHECKS.find((item) => item.id === id);
-  if (!definition) throw new Error(`Check desconocido: ${id}`);
+  if (!definition) throw new Error(`Unknown check: ${id}`);
   const normalizedPoints = Math.max(0, Math.min(definition.max, points));
   return {
     id,
@@ -441,41 +441,41 @@ function makeSourceCheck({ id, points, label, evidence, recommendation }) {
 
 function buildSourceFixPrompt(result) {
   const issues = result.priority.slice(0, 12)
-    .map((check, index) => `${index + 1}. [${check.category}] ${check.label}: ${check.recommendation} Evidencia: ${check.evidence}`)
+    .map((check, index) => `${index + 1}. [${check.category}] ${check.label}: ${check.recommendation} Evidence: ${check.evidence}`)
     .join('\n');
   const worstPages = result.pages
     .filter((page) => !page.title || !page.description || page.h1Count === 0 || page.wordCount < 120)
     .slice(0, 10)
-    .map((page) => `- ${page.file}${!page.title ? ' (sin title)' : ''}${!page.description ? ' (sin description)' : ''}${page.h1Count === 0 ? ' (sin H1)' : ''}${page.wordCount < 120 ? ' (thin content)' : ''}`)
+    .map((page) => `- ${page.file}${!page.title ? ' (missing title)' : ''}${!page.description ? ' (missing description)' : ''}${page.h1Count === 0 ? ' (missing H1)' : ''}${page.wordCount < 120 ? ' (thin content)' : ''}`)
     .join('\n');
 
   return [
-    'Arregla el SEO tecnico de este proyecto editando directamente los archivos indicados.',
+    "Fix the project technical SEO by editing the listed files directly.",
     '',
-    `Directorio auditado: ${result.dir}`,
-    `Puntuacion interseo (source): ${result.score}/100 (${result.grade.label})`,
-    `Paginas HTML: ${result.totals.pages}`,
+    `Audited directory: ${result.dir}`,
+    `interseo source score: ${result.score}/100 (${result.grade.label})`,
+    `HTML pages: ${result.totals.pages}`,
     '',
-    'Problemas priorizados:',
-    issues || 'No hay problemas priorizados.',
+    'Priority issues:',
+    issues || 'No priority issues.',
     '',
-    worstPages ? `Archivos con mas carencias:\n${worstPages}\n` : '',
-    'Aplica los cambios en los archivos fuente, mantiene el estilo del proyecto y no inventes contenido legal: usa plantillas orientativas y marca los datos a completar.',
+    worstPages ? `Files with the most gaps:\n${worstPages}\n` : '',
+    "Apply changes in the source files, keep the project style, and do not invent legal content: use templates and mark real details to complete.",
     ''
   ].filter(Boolean).join('\n');
 }
 
 function buildSourceMarkdown(result) {
   const lines = [
-    '# Informe interseo (source)',
+    '# interseo Source Report',
     '',
-    `Directorio: ${result.dir}`,
+    `Directory: ${result.dir}`,
     `Base URL: ${result.baseUrl}`,
-    `Fecha: ${result.auditedAt}`,
-    `Puntuacion: ${result.score}/100 (${result.grade.label})`,
-    `Paginas HTML: ${result.totals.pages}`,
+    `Date: ${result.auditedAt}`,
+    `Score: ${result.score}/100 (${result.grade.label})`,
+    `HTML pages: ${result.totals.pages}`,
     '',
-    '## Prioridad',
+    '## Priority',
     ''
   ];
 
@@ -483,46 +483,45 @@ function buildSourceMarkdown(result) {
     lines.push(`- [${check.category}] ${check.label}: ${check.recommendation} (${check.evidence})`);
   }
 
-  lines.push('', '## Categorias', '');
+  lines.push('', '## Categories', '');
   for (const category of result.categories) {
     lines.push(`- ${category.name}: ${category.percent}% (${category.score}/${category.max})`);
   }
 
-  lines.push('', '## Totales', '');
+  lines.push('', '## Totals', '');
   const totals = result.totals;
-  lines.push(`- Sin title: ${totals.missingTitle}`);
-  lines.push(`- Sin description: ${totals.missingDescription}`);
-  lines.push(`- Sin H1: ${totals.missingH1}`);
-  lines.push(`- Titles duplicados: ${totals.duplicateTitles}`);
+  lines.push(`- Missing title: ${totals.missingTitle}`);
+  lines.push(`- Missing description: ${totals.missingDescription}`);
+  lines.push(`- Missing H1: ${totals.missingH1}`);
+  lines.push(`- Duplicate titles: ${totals.duplicateTitles}`);
   lines.push(`- Thin content: ${totals.thinContent}`);
-  lines.push(`- Imagenes sin alt: ${totals.imagesMissingAlt}`);
-  lines.push(`- Enlaces internos rotos: ${totals.brokenInternalLinks}`);
-  lines.push(`- URLs del sitemap sin archivo: ${totals.sitemapMissingFiles}`);
-  lines.push(`- Paginas con meta refresh: ${totals.metaRefresh}`);
-  lines.push(`- Paginas huerfanas: ${totals.orphanPages}`);
+  lines.push(`- Images without alt: ${totals.imagesMissingAlt}`);
+  lines.push(`- Broken internal links: ${totals.brokenInternalLinks}`);
+  lines.push(`- Sitemap URLs without files: ${totals.sitemapMissingFiles}`);
+  lines.push(`- Pages with meta refresh: ${totals.metaRefresh}`);
+  lines.push(`- Orphan pages: ${totals.orphanPages}`);
 
   if (result.orphanPages.length) {
-    lines.push('', '## Paginas huerfanas', '');
+    lines.push('', '## Orphan Pages', '');
     for (const file of result.orphanPages.slice(0, 20)) {
       lines.push(`- ${file}`);
     }
   }
 
   if (result.sitemapMissingFiles.length) {
-    lines.push('', '## URLs del sitemap sin archivo', '');
+    lines.push('', '## Sitemap URLs Without Files', '');
     for (const item of result.sitemapMissingFiles.slice(0, 20)) {
       lines.push(`- ${item.url}`);
     }
   }
 
   if (result.brokenLinks.length) {
-    lines.push('', '## Enlaces rotos', '');
+    lines.push('', '## Broken Links', '');
     for (const link of result.brokenLinks.slice(0, 20)) {
       lines.push(`- ${link.file}: ${link.href} -> ${link.target}`);
     }
   }
 
-  lines.push('', cleanText('El prompt de arreglo esta en fixPrompt e indica archivos concretos a editar.'), '');
+  lines.push('', cleanText('The repair prompt is available in fixPrompt and lists the files to edit.'), '');
   return lines.join('\n');
 }
-

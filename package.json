@@ -1,7 +1,7 @@
 {
   "name": "interseo",
   "version": "2.1.0",
-  "description": "Skill y MCP interseo para auditar el SEO del codigo fuente de un sitio web sin red.",
+  "description": "Offline SEO audits and ready-to-use SEO assets for AI agents and MCP workflows.",
   "license": "PolyForm-Noncommercial-1.0.0",
   "type": "module",
   "private": true,

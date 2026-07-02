@@ -1,4 +1,4 @@
 interface:
-  display_name: "interseo"
-  short_description: "Auditor SEO de codigo fuente sin red"
+  display_name: "interseo Site Audit"
+  short_description: "Offline SEO audits for source code"
   default_prompt: "Use $interseo to audit a website's source folder, fix the flagged files, and generate the missing SEO assets."

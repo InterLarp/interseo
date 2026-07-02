@@ -10,7 +10,7 @@ const PROTOCOL_VERSION = '2025-06-18';
 const tools = [
   {
     name: 'audit_source',
-    title: 'Audit Website Source Code',
+    title: 'Site Audit',
     description: 'Audit the local source code of a website (a folder with HTML files) without any network access: titles, descriptions, H1s, canonical, noindex, robots.txt, sitemap.xml, legal pages, statically-broken internal links, thin content and more. Findings reference real file paths so an agent can fix them directly.',
     inputSchema: {
       type: 'object',
@@ -24,7 +24,7 @@ const tools = [
   },
   {
     name: 'generate_seo_kit',
-    title: 'Generate SEO Kit',
+    title: 'SEO Starter Kit',
     description: 'Generate robots.txt, sitemap.xml, JSON-LD, Search Console checklist, legal templates, llms.txt, humans.txt, security.txt, and MCP config for a site URL. Pairs with audit_source: generate whatever the source audit reports as missing.',
     inputSchema: {
       type: 'object',
@@ -41,7 +41,7 @@ const tools = [
   },
   {
     name: 'analyze_html',
-    title: 'Analyze HTML SEO',
+    title: 'HTML Snapshot',
     description: 'Analyze raw HTML for SEO metadata, headings, links, images, JSON-LD, Open Graph, Twitter Cards, hreflang, and mixed content.',
     inputSchema: {
       type: 'object',
@@ -96,7 +96,7 @@ async function dispatch(message) {
     return {
       protocolVersion: PROTOCOL_VERSION,
       capabilities: { tools: { listChanged: false } },
-      serverInfo: { name: 'interseo', title: 'interseo', version: pkg.version },
+      serverInfo: { name: 'interseo', title: 'interseo Site Audit', version: pkg.version },
       instructions: 'Use interseo tools to audit website source code offline and generate Google-ready SEO assets.'
     };
   }

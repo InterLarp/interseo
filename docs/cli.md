@@ -1,21 +1,23 @@
-﻿# Referencia del CLI
+# CLI Reference
 
-El CLI es la interfaz mínima de interseo. Se ejecuta desde la raíz del repo con Node 20 o superior.
+The CLI is the small local interface used by the skill and scripts. Run it from the repo root with Node 20 or newer.
 
 ```powershell
-node src/cli.js [comando] <carpeta|url> [flags]
+node src/cli.js [command] <folder|url> [flags]
 ```
 
-Si no indicas comando, se ejecuta `source`.
+If no command is provided, `source` is used.
 
-## Comandos
+## Commands
 
 ### `source`
 
-Audita una carpeta local con HTML y devuelve un informe orientado a SEO técnico. El análisis no usa red.
+Human name: **Site Audit**
+
+Audits a local HTML folder and returns an SEO report. The analysis stays offline.
 
 ```powershell
-node src/cli.js source ./dist --base https://tudominio.com
+node src/cli.js source ./dist --base https://example.com
 node src/cli.js ./public
 node src/cli.js source . --prompt
 node src/cli.js source ./dist --json
@@ -23,35 +25,37 @@ node src/cli.js source ./dist --json
 
 Flags:
 
-- `--base <url>`: base para resolver enlaces internos absolutos
-- `--limit <n>`: máximo de archivos HTML a analizar, por defecto 200
-- `--prompt`: imprime un prompt con los archivos y problemas prioritarios
-- `--json`: imprime el resultado completo como JSON
+- `--base <url>`: base URL used to resolve absolute internal links
+- `--limit <n>`: maximum HTML files to analyze, default 200
+- `--prompt`: prints a repair prompt with priority files and issues
+- `--json`: prints the full result as JSON
 
-El informe incluye title, description, H1, `lang`, viewport, canonical, noindex, imágenes sin alt, contenido delgado y mixed content. A nivel de proyecto revisa robots.txt, sitemap.xml, páginas legales, contacto, duplicados, páginas huérfanas y enlaces rotos.
+The report covers title, description, H1, `lang`, viewport, canonical, noindex, image alt text, thin content, mixed content, robots.txt, sitemap.xml, legal pages, contact pages, duplicates, orphan pages, and broken links.
 
 ### `kit`
 
-Genera el kit SEO para una URL. Devuelve el kit como JSON y, si usas `--save`, lo escribe a disco.
+Human name: **SEO Starter Kit**
+
+Generates SEO assets for a URL. It returns JSON and writes files to disk when `--save` is used.
 
 ```powershell
-node src/cli.js kit tudominio.com --save
-node src/cli.js kit tudominio.com --description "Tienda de cerámica" --lang es --save
+node src/cli.js kit example.com --save
+node src/cli.js kit example.com --description "Independent design studio" --lang en --save
 ```
 
 Flags:
 
-- `--save`: guarda los archivos generados
-- `--out <dir>`: carpeta de salida, por defecto `generated/<sitio>`
-- `--name <nombre>`: nombre del sitio
-- `--description <texto>`: descripción corta
-- `--businessName <nombre>`: nombre legal para las plantillas
-- `--lang <código>`: idioma para los datos estructurados
-- `--urls <lista>`: URLs conocidas separadas por comas para el sitemap
+- `--save`: writes generated files to disk
+- `--out <dir>`: output folder, default `generated/<site>`
+- `--name <name>`: site or brand name
+- `--description <text>`: short site description
+- `--businessName <name>`: legal or business name for templates
+- `--lang <code>`: language code for structured data
+- `--urls <list>`: known URLs, comma-separated, for the sitemap
 
-## Flags generales
+## General Flags
 
-- `--help`, `-h`: muestra esta ayuda
-- `--version`: muestra la versión
+- `--help`, `-h`: shows help
+- `--version`: shows the version
 
-Los flags booleanos no consumen el siguiente argumento. El informe va por `stdout`, los errores por `stderr` y el código de salida es `1` si falta el objetivo o la auditoría falla.
+Boolean flags do not consume the next argument. Reports go to `stdout`, errors go to `stderr`, and the exit code is `1` when the target is missing or the audit fails.

@@ -214,10 +214,10 @@ export function summarizeCategories(checks) {
 
 export function scoreToGrade(score) {
   const percent = Math.max(0, Math.min(100, Number(score) || 0));
-  if (percent >= 90) return { label: 'Excelente', tone: 'good' };
-  if (percent >= 75) return { label: 'Bueno', tone: 'good' };
-  if (percent >= 60) return { label: 'Mejorable', tone: 'warn' };
-  return { label: 'Critico', tone: 'bad' };
+  if (percent >= 90) return { label: 'Excellent', tone: 'good' };
+  if (percent >= 75) return { label: 'Good', tone: 'good' };
+  if (percent >= 60) return { label: 'Needs Work', tone: 'warn' };
+  return { label: 'Critical', tone: 'bad' };
 }
 
 function resolveBaseUrl(html, pageUrl) {

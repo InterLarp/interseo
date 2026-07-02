@@ -5,14 +5,14 @@ export function buildGeneratedKit(input) {
   const origin = targetUrl.origin;
   const siteName = cleanText(input.siteName || targetUrl.hostname) || targetUrl.hostname;
   const businessName = cleanText(input.businessName || siteName) || siteName;
-  const description = cleanText(input.description || `Sitio web oficial de ${siteName}.`);
+  const description = cleanText(input.description || `Official website for ${siteName}.`);
   const contactEmail = cleanText(input.contactEmail || defaultContactEmailForUrl(targetUrl.href));
   const today = new Date().toISOString().slice(0, 10);
   const urls = normalizeKitUrls(input.discoveredUrls || [targetUrl.href], origin);
   const sitemapUrl = new URL('/sitemap.xml', origin).href;
-  const privacyUrl = new URL('/politica-de-privacidad', origin).href;
-  const cookiesUrl = new URL('/politica-de-cookies', origin).href;
-  const termsUrl = new URL('/aviso-legal', origin).href;
+  const privacyUrl = new URL('/privacy-policy', origin).href;
+  const cookiesUrl = new URL('/cookie-policy', origin).href;
+  const termsUrl = new URL('/legal-notice', origin).href;
 
   const schema = {
     '@context': 'https://schema.org',
@@ -91,42 +91,42 @@ export function buildGeneratedKit(input) {
       path: 'google-search-console-checklist.md',
       language: 'markdown',
       content: [
-        `# Checklist Google para ${siteName}`,
+        `# Google Launch Checklist for ${siteName}`,
         '',
-        `- Publica \`robots.txt\` en \`${origin}/robots.txt\`.`,
-        `- Publica \`sitemap.xml\` en \`${sitemapUrl}\`.`,
-        '- Verifica que la home devuelve HTTP 200, usa HTTPS y no contiene `noindex`.',
-        '- Entra en Google Search Console y verifica la propiedad del dominio.',
-        '- Abre el informe Sitemaps, pega la URL del sitemap y pulsa Submit.',
-        '- Usa la inspeccion de URL para pedir recrawl de la home tras publicar cambios.',
-        '- Pasa el Rich Results Test si anades datos estructurados.',
-        '- Revisa PageSpeed Insights antes de campanas o lanzamientos importantes.',
+        `- Publish \`robots.txt\` at \`${origin}/robots.txt\`.`,
+        `- Publish \`sitemap.xml\` at \`${sitemapUrl}\`.`,
+        '- Confirm the home page returns HTTP 200, uses HTTPS, and does not contain `noindex`.',
+        '- Verify the domain property in Google Search Console.',
+        '- Open the Sitemaps report, add the sitemap URL, and submit it.',
+        '- Use URL Inspection to request a recrawl after publishing changes.',
+        '- Run the Rich Results Test if you add structured data.',
+        '- Check PageSpeed Insights before campaigns or important launches.',
         '',
-        'Notas:',
-        '- Google puede rastrear paginas bien enlazadas sin sitemap, pero el sitemap ayuda a descubrir contenido importante.',
-        '- robots.txt gestiona rastreo, no debe usarse como medida de seguridad ni como sustituto de noindex.',
+        'Notes:',
+        '- Google can crawl well-linked pages without a sitemap, but a sitemap helps discovery.',
+        '- robots.txt controls crawling; it is not a security control or a replacement for noindex.',
         ''
       ].join('\n')
     },
     {
-      path: 'legal/politica-de-privacidad.md',
+      path: 'legal/privacy-policy.md',
       language: 'markdown',
       content: buildPrivacyTemplate({ businessName, contactEmail, privacyUrl, today })
     },
     {
-      path: 'legal/politica-de-cookies.md',
+      path: 'legal/cookie-policy.md',
       language: 'markdown',
       content: buildCookieTemplate({ businessName, contactEmail, cookiesUrl, today })
     },
     {
-      path: 'legal/aviso-legal.md',
+      path: 'legal/legal-notice.md',
       language: 'markdown',
       content: buildTermsTemplate({ businessName, contactEmail, termsUrl, today })
     },
     {
       path: 'llms.txt',
       language: 'text',
-      content: [`# ${siteName}`, '', `> ${description}`, '', `Sitio: ${origin}`, `Sitemap: ${sitemapUrl}`, `Contacto: ${contactEmail}`, ''].join('\n')
+      content: [`# ${siteName}`, '', `> ${description}`, '', `Site: ${origin}`, `Sitemap: ${sitemapUrl}`, `Contact: ${contactEmail}`, ''].join('\n')
     },
     {
       path: 'humans.txt',
@@ -141,7 +141,7 @@ export function buildGeneratedKit(input) {
     {
       path: 'google-site-verification.html',
       language: 'html',
-      content: ['google-site-verification: REEMPLAZA-ESTE-TOKEN.html', ''].join('\n')
+      content: ['google-site-verification: REPLACE-THIS-TOKEN.html', ''].join('\n')
     },
     {
       path: 'interseo.mcp.json',
@@ -160,7 +160,7 @@ export function buildGeneratedKit(input) {
 
 export function defaultContactEmailForUrl(url) {
   const hostname = new URL(url).hostname.replace(/^www\./i, '');
-  return `contacto@${hostname}`;
+  return `hello@${hostname}`;
 }
 
 function normalizeKitUrls(urls, origin) {
@@ -181,51 +181,51 @@ function normalizeKitUrls(urls, origin) {
 
 function buildPrivacyTemplate({ businessName, contactEmail, privacyUrl, today }) {
   return [
-    `# Politica de privacidad de ${businessName}`,
+    `# Privacy Policy for ${businessName}`,
     '',
-    `Ultima actualizacion: ${today}`,
+    `Last updated: ${today}`,
     '',
-    '> Plantilla orientativa. Revisala con asesoramiento legal antes de publicarla.',
+    '> Starter template. Review it with legal advice before publishing.',
     '',
-    `En ${businessName} tratamos los datos personales necesarios para responder consultas, prestar servicios, gestionar comunicaciones y cumplir obligaciones legales.`,
+    `${businessName} processes the personal data needed to answer requests, provide services, manage communications, and meet legal obligations.`,
     '',
-    '## Responsable',
+    '## Controller',
     '',
-    `- Responsable: ${businessName}`,
-    `- Contacto: ${contactEmail}`,
+    `- Controller: ${businessName}`,
+    `- Contact: ${contactEmail}`,
     `- URL: ${privacyUrl}`,
     '',
-    '## Datos que podemos tratar',
+    '## Data We May Process',
     '',
-    '- Datos identificativos y de contacto enviados por formularios o correo.',
-    '- Datos tecnicos de navegacion necesarios para seguridad y funcionamiento.',
-    '- Datos de analitica o marketing solo cuando exista base legal o consentimiento aplicable.',
+    '- Identity and contact details sent through forms or email.',
+    '- Technical browsing data needed for security and operation.',
+    '- Analytics or marketing data only when a valid legal basis or consent applies.',
     '',
-    '## Derechos',
+    '## Rights',
     '',
-    'Puedes solicitar acceso, rectificacion, supresion, oposicion, limitacion o portabilidad escribiendo al contacto indicado.',
+    'You can request access, correction, deletion, objection, restriction, or portability by contacting the address above.',
     ''
   ].join('\n');
 }
 
 function buildCookieTemplate({ businessName, contactEmail, cookiesUrl, today }) {
   return [
-    `# Politica de cookies de ${businessName}`,
+    `# Cookie Policy for ${businessName}`,
     '',
-    `Ultima actualizacion: ${today}`,
+    `Last updated: ${today}`,
     '',
-    '> Plantilla orientativa. Ajusta esta pagina a las cookies reales del sitio.',
+    '> Starter template. Match this page to the cookies actually used by the site.',
     '',
-    'Este sitio puede usar cookies tecnicas necesarias para su funcionamiento y, si se activan, cookies de analitica, personalizacion o publicidad.',
+    'This site may use essential cookies for operation and, when enabled, analytics, personalization, or advertising cookies.',
     '',
-    '## Gestion de cookies',
+    '## Cookie Management',
     '',
-    'El usuario puede aceptar, rechazar o configurar cookies no necesarias desde el banner o panel de preferencias cuando corresponda.',
+    'Users can accept, reject, or configure non-essential cookies from the banner or preference panel when applicable.',
     '',
-    '## Contacto',
+    '## Contact',
     '',
-    `- Responsable: ${businessName}`,
-    `- Contacto: ${contactEmail}`,
+    `- Controller: ${businessName}`,
+    `- Contact: ${contactEmail}`,
     `- URL: ${cookiesUrl}`,
     ''
   ].join('\n');
@@ -233,25 +233,25 @@ function buildCookieTemplate({ businessName, contactEmail, cookiesUrl, today }) 
 
 function buildTermsTemplate({ businessName, contactEmail, termsUrl, today }) {
   return [
-    `# Aviso legal de ${businessName}`,
+    `# Legal Notice for ${businessName}`,
     '',
-    `Ultima actualizacion: ${today}`,
+    `Last updated: ${today}`,
     '',
-    '> Plantilla orientativa. Completa datos fiscales, direccion, registro y condiciones reales antes de publicarla.',
+    '> Starter template. Add real tax, address, registration, and service details before publishing.',
     '',
-    '## Titular del sitio',
+    '## Site Owner',
     '',
-    `- Titular: ${businessName}`,
-    `- Contacto: ${contactEmail}`,
+    `- Owner: ${businessName}`,
+    `- Contact: ${contactEmail}`,
     `- URL: ${termsUrl}`,
     '',
-    '## Uso del sitio',
+    '## Site Use',
     '',
-    'El usuario se compromete a usar el sitio de forma licita y a no realizar acciones que puedan danar, inutilizar o sobrecargar el servicio.',
+    'Users agree to use the site lawfully and avoid actions that could damage, disable, or overload the service.',
     '',
-    '## Propiedad intelectual',
+    '## Intellectual Property',
     '',
-    `Los contenidos, marcas y elementos del sitio pertenecen a ${businessName} o a sus respectivos titulares, salvo indicacion contraria.`,
+    `Site content, brands, and assets belong to ${businessName} or their respective owners unless stated otherwise.`,
     ''
   ].join('\n');
 }

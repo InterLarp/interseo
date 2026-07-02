@@ -1,52 +1,54 @@
-﻿# Servidor MCP
+# MCP Server
 
-`src/mcp.js` expone interseo como servidor MCP por stdio. No usa red ni dependencias externas.
+`src/mcp.js` exposes interseo as an MCP server over stdio. It does not use the network and has no runtime dependencies.
 
-Los errores devueltos por las herramientas siguen el formato MCP: la respuesta incluye `isError: true` cuando corresponde.
+Tool failures are returned in-band with `isError: true`.
 
-## Arranque
+## Start
 
 ```powershell
 npm run mcp
 node src/mcp.js
 ```
 
-Configuración típica del cliente:
+Client configuration:
 
 ```json
 {
   "mcpServers": {
     "interseo": {
       "command": "node",
-      "args": ["<ruta-al-repo>/src/mcp.js"]
+      "args": ["<path-to-interseo>/src/mcp.js"]
     }
   }
 }
 ```
 
-## Flujo recomendado
+## Agent Workflow
 
-1. Ejecuta `audit_source` sobre la carpeta con el HTML publicable.
-2. Corrige los archivos que aparecen en `priority` y en `fixPrompt`.
-3. Usa `generate_seo_kit` para crear lo que falte: robots, sitemap, JSON-LD, legales.
-4. Vuelve a ejecutar `audit_source` y compara la puntuación.
+1. Run `audit_source` on the folder that contains the publishable HTML.
+2. Fix the files listed in `priority` and `fixPrompt`.
+3. Run `generate_seo_kit` for missing assets like robots, sitemap, JSON-LD, and legal templates.
+4. Run `audit_source` again and compare the score.
 
-## Herramientas
+## Tools
 
 ### `audit_source`
 
-Audita una carpeta con HTML y devuelve hallazgos con rutas de archivo reales.
+Human name: **Site Audit**
 
-Parámetros:
+Audits a local HTML folder and returns findings with real file paths.
 
-- `dir` obligatorio: carpeta con el HTML publicable
-- `baseUrl`: URL del sitio para resolver enlaces internos absolutos
-- `pageLimit`: máximo de páginas HTML a analizar, por defecto 200
+Parameters:
 
-Devuelve:
+- `dir` required: folder with the publishable HTML
+- `baseUrl`: site URL used to resolve absolute internal links
+- `pageLimit`: maximum HTML files to analyze, default 200
 
-- `score` y `grade`
-- `checks` y `priority`
+Returns:
+
+- `score` and `grade`
+- `checks` and `priority`
 - `totals`
 - `brokenLinks`
 - `sitemapMissingFiles`
@@ -57,24 +59,28 @@ Devuelve:
 
 ### `generate_seo_kit`
 
-Genera los archivos SEO para una URL: robots.txt, sitemap.xml, snippet de head, JSON-LD, checklist de Search Console, plantillas legales, `llms.txt`, `humans.txt`, `security.txt` y configuración MCP.
+Human name: **SEO Starter Kit**
 
-Parámetros:
+Generates SEO assets for a URL: robots.txt, sitemap.xml, head snippet, JSON-LD, Search Console checklist, legal templates, `llms.txt`, `humans.txt`, `security.txt`, and MCP config.
 
-- `url` obligatorio: URL canónica del sitio
-- `siteName`: nombre del sitio
-- `description`: descripción corta
-- `businessName`: nombre legal del negocio
-- `lang`: código de idioma para WebSite
-- `discoveredUrls`: URLs del mismo origen para incluir en el sitemap
+Parameters:
 
-Devuelve `{ siteName, origin, generatedAt, files[] }`, donde cada archivo contiene `{ path, language, content }`.
+- `url` required: canonical site URL
+- `siteName`: site or brand name
+- `description`: short site description
+- `businessName`: legal or business name
+- `lang`: language code for WebSite structured data
+- `discoveredUrls`: same-origin URLs to include in the sitemap
+
+Returns `{ siteName, origin, generatedAt, files[] }`, where each file contains `{ path, language, content }`.
 
 ### `analyze_html`
 
-Analiza HTML en bruto: metadatos, headings, enlaces, imágenes, JSON-LD, Open Graph, Twitter Cards, hreflang y mixed content.
+Human name: **HTML Snapshot**
 
-Parámetros:
+Inspects raw HTML: metadata, headings, links, images, JSON-LD, Open Graph, Twitter Cards, hreflang, and mixed content.
 
-- `html` obligatorio: código fuente HTML
-- `url` obligatorio: URL de la página para resolver enlaces relativos
+Parameters:
+
+- `html` required: HTML source
+- `url` required: page URL used to resolve relative links
