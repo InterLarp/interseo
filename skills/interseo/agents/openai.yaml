@@ -1,4 +1,4 @@
 interface:
   display_name: "interseo"
-  short_description: "SEO CLI con DNS y prompts"
-  default_prompt: "Use $interseo to audit a domain, infer the site name, and generate a fix prompt for SEO issues."
+  short_description: "Auditor SEO de codigo fuente sin red"
+  default_prompt: "Use $interseo to audit a website's source folder, fix the flagged files, and generate the missing SEO assets."

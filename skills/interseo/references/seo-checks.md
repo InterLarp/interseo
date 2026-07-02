@@ -1,29 +1,32 @@
-# interseo — SEO checks reference
+# interseo — SEO checks reference (source audit)
 
 ## Scoring categories
 
-The audit score is split across these categories, each with its own weight. The overall grade is Excelente (≥90), Bueno (≥75), Mejorable (≥60), or Crítico (<60).
+The score is split across these categories. The overall grade is Excelente (≥90), Bueno (≥75), Mejorable (≥60), or Crítico (<60).
 
-- **Infra** — DNS resolution and latency, A/AAAA records, IPv6, nameservers, SPF and DMARC.
-- **Rastreo** — URL access over HTTPS, robots.txt, sitemap, canonical, redirects.
-- **Contenido** — title, meta description, viewport, language, H1, internal links, image alt text.
-- **Indexación** — noindex, X-Robots-Tag, structured data, Open Graph, Twitter Cards, hreflang, favicon.
-- **Confianza** — privacy policy, cookie policy, legal/terms page, contact or about page, mixed content.
-- **Google** — sitemap declared in robots.txt, sitemap includes the home URL, useful Schema.org type, Search Console readiness.
-- **Crawler** — breadth-first internal crawl that follows discovered links up to the page limit, honoring `robots.txt` disallow rules (Google-style longest-match with `*` and `$` support; the audit target itself is always fetched): HTTP errors, duplicate titles and descriptions, thin content, broken internal links. `crawl.discoveredCount` reports unique internal URLs found; `crawl.totals.skippedByRobots` counts URLs left uncrawled because robots.txt blocks them.
-- **Rendimiento** — response time and redirect control.
+- **Rastreo** — HTML pages found, robots.txt present and not blocking everything, sitemap.xml present and valid.
+- **Contenido** — per-page title, unique titles, meta description, unique descriptions, H1, `lang`, viewport, image alt text, thin content (under 120 words).
+- **Indexación** — canonical per page, no unexpected `noindex`, JSON-LD on the home, Open Graph on the home, favicon.
+- **Confianza** — legal pages (privacy, cookies, legal notice), contact/about page, no `http://` resources in pages.
+- **Enlaces** — internal links resolve to files that actually exist (`/about` → `about.html` or `about/index.html`).
+
+Per-page checks scale: full points with 0 affected pages, half if up to 20% of pages are affected, zero above that.
 
 ## Priority order when fixing
 
-1. Make DNS resolve quickly with valid A or AAAA records.
-2. Make the home return HTTP 200 over HTTPS without login.
-3. Remove `noindex` and blocking `X-Robots-Tag` from pages meant to rank.
-4. Ensure `robots.txt` does not block `/` for `*` or Googlebot.
-5. Publish `sitemap.xml` and declare it in `robots.txt`.
-6. Fix canonical, title, description, H1, and thin content.
-7. Fix broken internal links and duplicate metadata found by the crawl.
-8. Add JSON-LD, social metadata, trust pages, SPF/DMARC, and complete the Search Console checklist.
+1. Make sure the audited folder contains the final HTML (`dist/`, `public/`, or the root).
+2. Remove a global `Disallow: /` from robots.txt unless the environment must stay unindexed.
+3. Add robots.txt and sitemap.xml if missing (`generate_seo_kit` produces both).
+4. Remove `noindex` from pages meant to rank.
+5. Fix broken internal links — each finding names the source file and the missing target.
+6. Add missing titles, descriptions and H1s file by file; deduplicate repeated ones.
+7. Declare `lang`, viewport and canonical on every page.
+8. Expand thin content, add alt text, JSON-LD and Open Graph on the home, and the legal/contact pages.
+
+## Result shape
+
+`audit_source` returns `score`, `grade`, `categories`, `checks` (id, category, status pass/warn/fail, points, max, evidence, recommendation), `priority` (failing checks by lost points), `totals`, `brokenLinks` (`{file, href, target}`), `pages` (per-file analysis), `fixPrompt` and `report`.
 
 ## Generated kit
 
-Depending on the entry point, the kit includes: `robots.txt`, `sitemap.xml`, `seo-head-snippet.html`, `structured-data.jsonld`, the Search Console checklist, legal templates, `llms.txt`, `humans.txt`, `.well-known/security.txt`, `google-site-verification.html`, an MCP config, the Markdown report, checks and pages CSVs, a compact audit JSON, and the three fix prompts (skill, MCP, direct).
+`generate_seo_kit` produces: robots.txt, sitemap.xml, seo-head-snippet.html, structured-data.jsonld, the Search Console checklist, legal templates, llms.txt, humans.txt, `.well-known/security.txt`, google-site-verification.html and an MCP config. Legal templates are orientative and must be completed with real data.

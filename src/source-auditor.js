@@ -8,7 +8,7 @@ import {
   parseSitemap,
   scoreToGrade,
   summarizeCategories
-} from './auditor.js';
+} from './analyzer.js';
 
 const DEFAULT_BASE_URL = 'https://example.com';
 const DEFAULT_PAGE_LIMIT = 200;

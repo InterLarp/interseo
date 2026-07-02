@@ -1,13 +1,13 @@
 {
   "name": "interseo",
-  "version": "1.7.0",
-  "description": "CLI, MCP y skill interseo para auditar SEO tecnico, DNS e indexacion.",
+  "version": "2.0.0",
+  "description": "Skill y MCP interseo para auditar el SEO del codigo fuente de un sitio web sin red.",
   "license": "PolyForm-Noncommercial-1.0.0",
   "type": "module",
   "private": true,
   "scripts": {
     "start": "node src/cli.js",
-    "audit": "node src/cli.js audit",
+    "source": "node src/cli.js source",
     "kit": "node src/cli.js kit",
     "mcp": "node src/mcp.js",
     "skill:install": "node scripts/install-skill.js"

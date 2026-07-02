@@ -10,24 +10,20 @@ const REPO_URL = 'https://github.com/InterLarp/interseo.git';
 let args = process.argv.slice(2);
 let repo = '';
 
-// 1. INTERSEO_HOME apunta a un checkout existente.
 if (process.env.INTERSEO_HOME && isRepo(path.resolve(process.env.INTERSEO_HOME))) {
   repo = path.resolve(process.env.INTERSEO_HOME);
 }
 
-// 2. Primer argumento es una ruta a un checkout (compatibilidad con el uso antiguo).
 if (!repo && args[0] && isRepo(path.resolve(args[0]))) {
   repo = path.resolve(args[0]);
   args = args.slice(1);
 }
 
-// 3. La skill vive dentro del propio repo (skills/interseo/scripts).
 if (!repo) {
   const local = path.resolve(__dirname, '..', '..', '..');
   if (isRepo(local)) repo = local;
 }
 
-// 4. Cache local: clonar el repo publico la primera vez.
 if (!repo) {
   const cache = path.join(os.homedir(), '.interseo', 'repo');
   if (!isRepo(cache)) {
