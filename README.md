@@ -10,6 +10,15 @@ Funciona de tres formas:
 
 No tiene dependencias: solo necesita Node 20 o superior.
 
+## Instalación
+
+```powershell
+git clone https://github.com/InterLarp/interseo
+cd interseo
+```
+
+No hay `npm install`: no hay nada que instalar.
+
 ## Uso rápido
 
 Con el dominio basta. El nombre del sitio se infiere del propio crawl (metadatos, title, H1, Open Graph o el dominio) y el email de contacto legal se deriva como `contacto@dominio`.
@@ -61,9 +70,16 @@ Herramientas disponibles:
 
 Detalles de cada herramienta y sus parámetros en [docs/mcp.md](docs/mcp.md).
 
-## Skill para Codex
+## Skill para agentes
 
-La skill versionada vive en `skills/interseo`. Para instalarla en local (la copia a `$CODEX_HOME/skills`):
+La skill versionada vive en `skills/interseo` y es portable: cualquier agente puede copiarla y usarla sin tener el repo. Su runner (`scripts/run_interseo.mjs`) localiza interseo solo — por `INTERSEO_HOME`, por la estructura del repo, o clonándolo automáticamente en `~/.interseo/repo` la primera vez.
+
+```powershell
+# desde la carpeta de la skill, en cualquier máquina con Node 20 y git
+node scripts/run_interseo.mjs tudominio.com --save
+```
+
+Para instalarla en Codex (la copia a `$CODEX_HOME/skills`):
 
 ```powershell
 npm run skill:install
@@ -119,4 +135,4 @@ docs/                      referencia de CLI y MCP
 
 ## Licencia
 
-Gratis y open source, bajo licencia [MIT](LICENSE). Úsalo, modifícalo y compártelo como quieras.
+Gratis para uso personal, educativo, de investigación y de organizaciones sin ánimo de lucro, bajo [PolyForm Noncommercial 1.0.0](LICENSE). Puedes usarlo, modificarlo y compartirlo libremente mientras no sea con fines comerciales. Para uso comercial, contacta con el autor.

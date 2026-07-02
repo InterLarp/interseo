@@ -5,11 +5,25 @@ description: Audit and improve technical SEO from the interseo CLI and MCP serve
 
 # interseo
 
-interseo is a CLI-first SEO auditor with an MCP server. The normal input is just a domain: the site name is inferred from crawl metadata (title, H1, Open Graph) or the domain itself, and the legal contact email is derived as `contacto@domain`. It has zero dependencies and needs Node 20+.
+interseo is a CLI-first SEO auditor with an MCP server. The normal input is just a domain: the site name is inferred from crawl metadata (title, H1, Open Graph) or the domain itself, and the legal contact email is derived as `contacto@domain`. It has zero dependencies and needs Node 20+. Licensed for noncommercial use (PolyForm Noncommercial 1.0.0).
+
+## Getting interseo
+
+This skill is portable: any agent can use it without a pre-existing checkout.
+
+- **Easiest from anywhere**: run `node scripts/run_interseo.mjs <domain> [flags]` from this skill's folder. It finds the repo automatically — `INTERSEO_HOME`, an explicit path as first argument, the skill's own repo layout — and if none exists it clones `https://github.com/InterLarp/interseo.git` into `~/.interseo/repo` (needs git). All CLI commands and flags pass through.
+- **Manual**: `git clone https://github.com/InterLarp/interseo` and run `node interseo/src/cli.js <domain>`.
+- **Pin a checkout**: set `INTERSEO_HOME=<path-to-repo>` and the runner will always use it. To update a cached clone: `git -C ~/.interseo/repo pull`.
+
+```powershell
+node scripts/run_interseo.mjs example.com --save
+node scripts/run_interseo.mjs prompt example.com
+node scripts/run_interseo.mjs kit example.com --save
+```
 
 ## Choosing the entry point
 
-- **CLI** (`node src/cli.js`) — default. Use for one-off audits, saving kits to disk, or printing fix prompts.
+- **CLI** (`node src/cli.js` from the repo, or `node scripts/run_interseo.mjs` from anywhere) — default. Use for one-off audits, saving kits to disk, or printing fix prompts.
 - **MCP** (`node src/mcp.js`) — use when a client should call tools programmatically, chain audits with fixes, reuse a previous audit JSON, or analyze raw HTML without fetching.
 - Full command, flag, and tool parameter tables: `references/cli-and-mcp.md`.
 - Scoring categories, priority order, and kit contents: `references/seo-checks.md`.
