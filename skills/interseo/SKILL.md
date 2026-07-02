@@ -1,6 +1,6 @@
 ---
 name: interseo
-description: Use this skill to audit and fix SEO from local source files only. It should inspect the publishable HTML folder, edit files directly, generate missing SEO assets, and validate again without starting a web server or using network checks.
+description: Use this skill to audit and fix SEO from local source files only. It should inspect the publishable HTML folder, edit files directly, generate missing SEO assets, and run the audit again without starting a web server or using network checks.
 ---
 
 # interseo

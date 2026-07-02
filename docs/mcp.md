@@ -57,6 +57,11 @@ Returns:
 - `fixPrompt`
 - `report`
 
+Notes:
+
+- Sitemap indexes are recognized as indexes; child sitemap URLs are not treated as page URLs in source audits.
+- A page that only links to itself is still reported as an orphan page.
+
 ### `generate_seo_kit`
 
 Human name: **SEO Starter Kit**

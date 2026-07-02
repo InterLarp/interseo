@@ -1,7 +1,7 @@
 export function normalizeUrl(input) {
   const raw = String(input || '').trim();
   if (!raw) {
-    throw new Error('Introduce una URL.');
+    throw new Error('Enter a URL.');
   }
 
   const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
@@ -9,11 +9,11 @@ export function normalizeUrl(input) {
   try {
     url = new URL(withProtocol);
   } catch {
-    throw new Error(`URL no valida: ${raw}`);
+    throw new Error(`Invalid URL: ${raw}`);
   }
 
   if (!['http:', 'https:'].includes(url.protocol)) {
-    throw new Error('La URL debe usar http o https.');
+    throw new Error('The URL must use http or https.');
   }
 
   url.hash = '';
@@ -294,7 +294,7 @@ function extractJsonLdTypes(html) {
       const parsed = JSON.parse(decodeHtml(match[2].trim()));
       collectJsonLdTypes(parsed, types);
     } catch {
-      types.push('JSON-LD invalido');
+      types.push('Invalid JSON-LD');
     }
   }
 

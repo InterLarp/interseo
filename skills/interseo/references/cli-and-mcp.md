@@ -56,7 +56,7 @@ Human name: Site Audit
 | `baseUrl` | string | Site base URL used to resolve absolute internal links |
 | `pageLimit` | number | Maximum HTML files to analyze, default 200 |
 
-Returns score, grade, prioritized checks, totals, broken links, sitemap URLs without files, orphan pages, per-page analysis, a repair prompt, and a Markdown report.
+Returns score, grade, prioritized checks, totals, broken links, sitemap URLs without files, orphan pages, per-page analysis, a repair prompt, and a Markdown report. Sitemap indexes are detected, and self-links do not hide orphan pages.
 
 ### `generate_seo_kit`
 

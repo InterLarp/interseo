@@ -68,10 +68,11 @@ export async function auditSource(input) {
   const sitemapFile = allFiles.find((file) => /^sitemap[^/]*\.xml$/i.test(file)) || '';
   const sitemapRaw = sitemapFile ? await readFile(path.join(rootDir, sitemapFile), 'utf8').catch(() => '') : '';
   const sitemap = parseSitemap(sitemapRaw);
+  const sitemapPageUrls = sitemap.isIndex ? [] : sitemap.urls;
 
   const brokenLinks = findBrokenLinks(pages, fileSet, baseUrl);
-  const sitemapMissingFiles = findSitemapMissingFiles(sitemap.urls, fileSet);
-  const referenced = collectReferencedFiles(pages, sitemap.urls, fileSet, baseUrl);
+  const sitemapMissingFiles = findSitemapMissingFiles(sitemapPageUrls, fileSet);
+  const referenced = collectReferencedFiles(pages, sitemapPageUrls, fileSet, baseUrl);
   const orphanPages = pages
     .filter((page) => page !== home && !referenced.has(page.file.toLowerCase()))
     .map((page) => page.file);
@@ -114,7 +115,7 @@ export async function auditSource(input) {
     orphanPages: orphanPages.slice(0, 50),
     pages: pages.map(({ links, ...page }) => page),
     robots: { exists: fileSet.has('robots.txt'), blocksAll: robots.blocksAll, sitemaps: robots.sitemaps },
-    sitemap: { file: sitemapFile, isSitemap: sitemap.isSitemap, urlCount: sitemap.urls.length }
+    sitemap: { file: sitemapFile, isSitemap: sitemap.isSitemap, isIndex: sitemap.isIndex, urlCount: sitemap.urls.length }
   };
 
   result.fixPrompt = buildSourceFixPrompt(result);
@@ -242,7 +243,7 @@ function pathExistsInSource(pathname, fileSet) {
 function collectReferencedFiles(pages, sitemapUrls, fileSet, baseUrl) {
   const origin = new URL(baseUrl).origin;
   const referenced = new Set();
-  const add = (raw) => {
+  const add = (raw, sourceFile = '') => {
     let url;
     try {
       url = new URL(raw);
@@ -251,11 +252,11 @@ function collectReferencedFiles(pages, sitemapUrls, fileSet, baseUrl) {
     }
     if (url.origin !== origin) return;
     const match = resolveSourcePath(decodeURIComponent(url.pathname), fileSet);
-    if (match) referenced.add(match);
+    if (match && match !== sourceFile.toLowerCase()) referenced.add(match);
   };
 
   for (const page of pages) {
-    for (const link of page.links || []) add(link.url);
+    for (const link of page.links || []) add(link.url, page.file);
   }
   for (const raw of sitemapUrls) add(raw);
   return referenced;
@@ -334,14 +335,18 @@ function buildSourceChecks({ pages, home, totals, brokenLinks, sitemapMissingFil
     }),
     makeSourceCheck({
       id: 'sitemap_urls_exist',
-      points: !sitemapFile ? 0 : sitemapMissingFiles.length === 0 ? 4 : sitemapMissingFiles.length <= 2 ? 2 : 0,
+      points: !sitemapFile ? 0 : sitemap.isIndex ? 4 : sitemapMissingFiles.length === 0 ? 4 : sitemapMissingFiles.length <= 2 ? 2 : 0,
       label: 'Sitemap URLs map to files',
       evidence: sitemapFile
-        ? sitemapMissingFiles.length
-          ? `${sitemapMissingFiles.length} URL(s) without a file, e.g. ${sitemapMissingFiles[0].target}`
-          : 'Every sitemap URL has a matching file'
+        ? sitemap.isIndex
+          ? 'Sitemap index found; child sitemap URLs are not page URLs in a source audit'
+          : sitemapMissingFiles.length
+            ? `${sitemapMissingFiles.length} URL(s) without a file, e.g. ${sitemapMissingFiles[0].target}`
+            : 'Every sitemap URL has a matching file'
         : 'No sitemap',
-      recommendation: 'Remove stale sitemap URLs or create the missing files.'
+      recommendation: sitemap.isIndex
+        ? 'Make sure child sitemaps are published with the site.'
+        : 'Remove stale sitemap URLs or create the missing files.'
     }),
     scaled('titles_present', totals.missingTitle, 'Every page has a title',
       `${totals.missingTitle} of ${total} without <title>`, 'Add a unique, descriptive title to each page.'),

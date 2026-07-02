@@ -4,11 +4,11 @@
 
 The score is split across five categories. The overall grade is Excellent (90+), Good (75+), Needs Work (60+), or Critical (below 60).
 
-- **Crawl**: HTML pages found, robots.txt present, robots.txt not blocking everything, sitemap.xml present and valid, sitemap URLs mapped to files.
+- **Crawl**: HTML pages found, robots.txt present, robots.txt not blocking everything, sitemap.xml present and valid, sitemap URLs mapped to files. Sitemap indexes are accepted without treating child sitemap URLs as page URLs.
 - **Content**: titles, unique titles, descriptions, unique descriptions, H1s, language, viewport, image alt text, and thin content.
 - **Indexing**: canonical links, unexpected noindex tags, meta refresh redirects, structured data, Open Graph, and favicon.
 - **Trust**: privacy, cookie, legal, contact, and about pages, plus no HTTP resources on HTTPS pages.
-- **Links**: internal links resolve to files that actually exist, such as `/about` mapping to `about.html` or `about/index.html`.
+- **Links**: internal links resolve to files that actually exist, such as `/about` mapping to `about.html` or `about/index.html`. Self-links do not stop a page from being reported as orphaned.
 
 Per-page checks scale like this: full points when no pages are affected, half points when up to 20% of pages are affected, and zero above that.
 

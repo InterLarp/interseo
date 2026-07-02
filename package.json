@@ -10,7 +10,8 @@
     "source": "node src/cli.js source",
     "kit": "node src/cli.js kit",
     "mcp": "node src/mcp.js",
-    "skill:install": "node scripts/install-skill.js"
+    "skill:install": "node scripts/install-skill.js",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=20"
