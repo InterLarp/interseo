@@ -1,39 +1,96 @@
 # interseo
 
-App local interseo para auditar SEO tecnico y preparar los archivos base que suelen hacer falta antes de enviar un sitio a Google Search Console.
+CLI + MCP + skill para auditar SEO tecnico, DNS, rastreo, indexacion y preparacion para Google Search Console.
 
-## Uso
+## Uso rapido
+
+Solo dominio y nombre:
 
 ```powershell
-npm.cmd start
+node src/cli.js tudominio.com "Nombre del proyecto"
 ```
 
-Abre `http://localhost:4173`, introduce la URL y ejecuta la auditoria.
-
-Tambien puedes usarlo por CLI:
+Guardar kit generado:
 
 ```powershell
-npm.cmd run audit -- https://tudominio.com "Nombre del sitio"
+node src/cli.js tudominio.com "Nombre del proyecto" --save
+```
+
+Rastreo mas amplio:
+
+```powershell
+node src/cli.js tudominio.com "Nombre del proyecto" --deep
+node src/cli.js tudominio.com "Nombre del proyecto" --full
+```
+
+Generar kit sin auditoria:
+
+```powershell
+node src/cli.js kit tudominio.com "Nombre del proyecto" --save
+```
+
+El email legal se deriva solo como `contacto@dominio`.
+
+## MCP
+
+```powershell
+npm.cmd run mcp
+```
+
+Config de ejemplo:
+
+```json
+{
+  "mcpServers": {
+    "interseo": {
+      "command": "node",
+      "args": ["C:\\Users\\sigma\\Desktop\\seomax\\src\\mcp.js"]
+    }
+  }
+}
+```
+
+Herramientas MCP:
+
+- `audit_site`: auditoria con DNS, crawler, score, reportes y kit.
+- `generate_seo_kit`: genera archivos sin rastrear.
+- `analyze_html`: analiza HTML bruto.
+- `build_report`: crea Markdown y CSV desde un audit JSON.
+
+## Skill Codex
+
+La skill versionada esta en `skills/interseo`.
+
+Instalacion local:
+
+```powershell
+npm.cmd run skill:install
 ```
 
 ## Que revisa
 
-- Home accesible, HTTPS, `robots.txt`, bloqueo global y sitemap.
+- DNS: A/AAAA, latencia de resolucion, IPv6, nameservers, SPF y DMARC.
+- Home accesible, HTTPS, redirects, tiempo de respuesta, `robots.txt`, bloqueo global y sitemap.
 - `title`, meta description, canonical, viewport, idioma, H1, enlaces internos e imagenes sin `alt`.
-- `noindex`, JSON-LD, Open Graph, favicon y contenido textual.
+- `noindex`, `X-Robots-Tag`, JSON-LD, Open Graph, Twitter Cards, hreflang, favicon y mixed content.
 - Politica de privacidad, cookies, aviso legal o terminos, contacto o sobre nosotros.
+- Crawler interno con errores HTTP, duplicados, thin content y enlaces rotos.
 - Preparacion minima para Search Console.
 
 ## Que genera
-
-Al guardar el kit crea una carpeta dentro de `generated/` con:
 
 - `robots.txt`
 - `sitemap.xml`
 - `seo-head-snippet.html`
 - `structured-data.jsonld`
 - `google-search-console-checklist.md`
+- `llms.txt`
+- `humans.txt`
+- `.well-known/security.txt`
+- `google-site-verification.html`
+- `interseo.mcp.json`
 - Plantillas en `legal/`
+- Reportes en `reports/`
 
 Las plantillas legales son orientativas. Deben revisarse con datos reales y criterio legal antes de publicarlas.
 
@@ -42,10 +99,3 @@ Las plantillas legales son orientativas. Deben revisarse con datos reales y crit
 ```powershell
 npm.cmd test
 ```
-
-## Fuentes de criterio
-
-- Google Search Central: sitemaps.
-- Google Search Central: robots.txt.
-- Google Search Central: SEO Starter Guide.
-- Search Console Help: informe Sitemaps.

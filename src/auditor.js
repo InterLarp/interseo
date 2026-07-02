@@ -1,9 +1,14 @@
+import { promises as dns } from 'node:dns';
 import { URL } from 'node:url';
 
 const USER_AGENT = 'interseo-auditor/1.0';
 const DEFAULT_TIMEOUT_MS = 12000;
 const PROBE_TIMEOUT_MS = 5500;
 const MAX_RESPONSE_BYTES = 2_000_000;
+const DEFAULT_CRAWL_LIMIT = 5;
+const DEFAULT_LINK_PROBE_LIMIT = 12;
+const DNS_TIMEOUT_MS = 3500;
+const MAX_CRAWL_LIMIT = 40;
 
 const DEFAULT_POLICY_PATHS = {
   privacy: [
@@ -64,7 +69,27 @@ const CHECK_DEFINITIONS = [
   { id: 'contact_or_about', category: 'Confianza', max: 2 },
   { id: 'sitemap_has_home', category: 'Google', max: 3 },
   { id: 'jsonld_useful_type', category: 'Google', max: 3 },
-  { id: 'google_ready_core', category: 'Google', max: 2 }
+  { id: 'google_ready_core', category: 'Google', max: 2 },
+  { id: 'response_time', category: 'Rendimiento', max: 4 },
+  { id: 'redirect_chain', category: 'Rendimiento', max: 2 },
+  { id: 'security_headers', category: 'Confianza', max: 4 },
+  { id: 'mixed_content', category: 'Confianza', max: 3 },
+  { id: 'x_robots_header', category: 'Indexacion', max: 3 },
+  { id: 'canonical_absolute', category: 'Rastreo', max: 2 },
+  { id: 'hreflang_valid', category: 'Indexacion', max: 2 },
+  { id: 'twitter_cards', category: 'Indexacion', max: 2 },
+  { id: 'sitemap_same_origin', category: 'Google', max: 3 },
+  { id: 'sitemap_size_limit', category: 'Google', max: 2 },
+  { id: 'crawl_completed', category: 'Crawler', max: 4 },
+  { id: 'crawl_statuses', category: 'Crawler', max: 4 },
+  { id: 'duplicate_titles', category: 'Crawler', max: 3 },
+  { id: 'duplicate_descriptions', category: 'Crawler', max: 3 },
+  { id: 'broken_internal_links', category: 'Crawler', max: 4 },
+  { id: 'dns_resolves', category: 'Infra', max: 4 },
+  { id: 'dns_latency', category: 'Infra', max: 3 },
+  { id: 'dns_ipv6', category: 'Infra', max: 1 },
+  { id: 'dns_nameservers', category: 'Infra', max: 2 },
+  { id: 'dns_mail_auth', category: 'Infra', max: 2 }
 ];
 
 const MAX_SCORE = CHECK_DEFINITIONS.reduce((sum, check) => sum + check.max, 0);
@@ -147,6 +172,135 @@ export async function fetchText(url, options = {}) {
   }
 }
 
+async function fetchProbe(url, options = {}) {
+  const controller = new AbortController();
+  const startedAt = Date.now();
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? PROBE_TIMEOUT_MS);
+
+  try {
+    let response = await fetch(url, {
+      method: 'HEAD',
+      redirect: 'follow',
+      signal: controller.signal,
+      headers: {
+        'accept': '*/*',
+        'user-agent': USER_AGENT
+      }
+    });
+
+    if (response.status === 405 || response.status === 403) {
+      response = await fetch(url, {
+        method: 'GET',
+        redirect: 'follow',
+        signal: controller.signal,
+        headers: {
+          'accept': '*/*',
+          'user-agent': USER_AGENT
+        }
+      });
+    }
+
+    return {
+      url,
+      finalUrl: response.url,
+      ok: response.ok,
+      status: response.status,
+      headers: headersToObject(response.headers),
+      elapsedMs: Date.now() - startedAt
+    };
+  } catch (error) {
+    return {
+      url,
+      finalUrl: url,
+      ok: false,
+      status: 0,
+      headers: {},
+      elapsedMs: Date.now() - startedAt,
+      error: error.name === 'AbortError' ? 'Tiempo de espera agotado.' : error.message
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+async function auditDns(hostname) {
+  const host = String(hostname || '').toLowerCase().replace(/^\.+|\.+$/g, '');
+  const domain = guessDomain(host);
+  const startedAt = Date.now();
+  const lookupStartedAt = Date.now();
+  const lookup = await dnsTask(() => dns.lookup(host, { all: true }));
+  const lookupMs = Date.now() - lookupStartedAt;
+  const [a, aaaa, ns, mx, txt, dmarc] = await Promise.all([
+    dnsTask(() => dns.resolve4(host)),
+    dnsTask(() => dns.resolve6(host)),
+    dnsTask(() => dns.resolveNs(domain)),
+    dnsTask(() => dns.resolveMx(domain)),
+    dnsTask(() => dns.resolveTxt(domain)),
+    dnsTask(() => dns.resolveTxt(`_dmarc.${domain}`))
+  ]);
+  const txtFlat = flattenTxt(txt.values);
+  const dmarcFlat = flattenTxt(dmarc.values);
+  const spf = txtFlat.find((entry) => /^v=spf1\b/i.test(entry)) || '';
+  const dmarcRecord = dmarcFlat.find((entry) => /^v=dmarc1\b/i.test(entry)) || '';
+  const addresses = Array.isArray(lookup.values) ? lookup.values : [];
+
+  return {
+    hostname: host,
+    domain,
+    elapsedMs: Date.now() - startedAt,
+    lookupMs,
+    resolves: lookup.ok && addresses.length > 0,
+    addresses,
+    a: a.values || [],
+    aaaa: aaaa.values || [],
+    ns: ns.values || [],
+    mx: mx.values || [],
+    spf,
+    dmarc: dmarcRecord,
+    errors: {
+      lookup: lookup.error || null,
+      a: a.error || null,
+      aaaa: aaaa.error || null,
+      ns: ns.error || null,
+      mx: mx.error || null,
+      txt: txt.error || null,
+      dmarc: dmarc.error || null
+    }
+  };
+}
+
+async function dnsTask(fn) {
+  try {
+    const values = await timeoutPromise(fn(), DNS_TIMEOUT_MS);
+    return { ok: true, values };
+  } catch (error) {
+    return { ok: false, values: [], error: error.code || error.message || String(error) };
+  }
+}
+
+function timeoutPromise(promise, ms) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error('DNS_TIMEOUT')), ms);
+    })
+  ]).finally(() => clearTimeout(timer));
+}
+
+function flattenTxt(values) {
+  return (values || []).map((item) => Array.isArray(item) ? item.join('') : String(item));
+}
+
+function guessDomain(hostname) {
+  const parts = String(hostname || '').split('.').filter(Boolean);
+  if (parts.length <= 2) return parts.join('.');
+  return parts.slice(-2).join('.');
+}
+
+function defaultContactEmailForUrl(url) {
+  const hostname = new URL(url).hostname.replace(/^www\./i, '');
+  return `contacto@${hostname}`;
+}
 function headersToObject(headers) {
   const out = {};
   for (const [key, value] of headers.entries()) {
@@ -156,8 +310,11 @@ function headersToObject(headers) {
 }
 
 export async function auditSite(input) {
-  const targetUrl = normalizeUrl(input.url || input);
+  const request = typeof input === 'string' ? { url: input } : input || {};
+  const targetUrl = normalizeUrl(request.url || request);
   const startedAt = Date.now();
+  const crawlLimit = clampNumber(request.crawlLimit ?? request.pageLimit ?? DEFAULT_CRAWL_LIMIT, 1, MAX_CRAWL_LIMIT);
+  const linkProbeLimit = clampNumber(request.linkProbeLimit ?? DEFAULT_LINK_PROBE_LIMIT, 0, 120);
   const homepage = await fetchText(targetUrl.href);
   const html = homepage.text || '';
   const page = homepage.ok ? analyzeHtml(html, homepage.finalUrl || targetUrl.href) : emptyPageAnalysis(targetUrl.href);
@@ -170,10 +327,21 @@ export async function auditSite(input) {
   });
   const robots = parseRobotsTxt(robotsResponse.ok ? robotsResponse.text : '');
 
-  const [sitemap, policies] = await Promise.all([
+  const [sitemap, policies, dnsInfo] = await Promise.all([
     auditSitemap(origin, robots.sitemaps, targetUrl.href),
-    auditPolicies(origin, page.links)
+    auditPolicies(origin, page.links),
+    auditDns(targetUrl.hostname)
   ]);
+
+  const crawl = await auditCrawl({
+    targetUrl: targetUrl.href,
+    origin,
+    homepage,
+    page,
+    sitemap,
+    crawlLimit,
+    linkProbeLimit
+  });
 
   const checks = buildChecks({
     targetUrl,
@@ -182,28 +350,34 @@ export async function auditSite(input) {
     robotsResponse,
     robots,
     sitemap,
-    policies
+    policies,
+    crawl,
+    dns: dnsInfo
   });
 
-  const score = checks.reduce((sum, check) => sum + check.points, 0);
+  const rawScore = checks.reduce((sum, check) => sum + check.points, 0);
+  const rawMax = checks.reduce((sum, check) => sum + check.max, 0);
+  const score = rawMax ? Math.round((rawScore / rawMax) * 100) : 0;
   const categories = summarizeCategories(checks);
-  const discoveredUrls = collectDiscoveredUrls(targetUrl.href, page, sitemap, policies);
+  const discoveredUrls = collectDiscoveredUrls(targetUrl.href, page, sitemap, policies, crawl);
   const kit = buildGeneratedKit({
     url: targetUrl.href,
-    siteName: input.siteName || page.title || targetUrl.hostname,
-    description: input.description || page.description || '',
-    businessName: input.businessName || input.siteName || page.title || targetUrl.hostname,
-    contactEmail: input.contactEmail || '',
+    siteName: request.siteName || page.title || targetUrl.hostname,
+    description: request.description || page.description || '',
+    businessName: request.businessName || request.siteName || page.title || targetUrl.hostname,
+    contactEmail: defaultContactEmailForUrl(targetUrl.href),
     discoveredUrls
   });
 
-  return {
+  const result = {
     auditedAt: new Date().toISOString(),
     elapsedMs: Date.now() - startedAt,
     inputUrl: targetUrl.href,
     finalUrl: homepage.finalUrl || targetUrl.href,
     score,
-    maxScore: MAX_SCORE,
+    maxScore: 100,
+    rawScore,
+    rawMax,
     grade: scoreToGrade(score),
     categories,
     checks,
@@ -221,10 +395,15 @@ export async function auditSite(input) {
     },
     sitemap,
     policies,
+    crawl,
+    dns: dnsInfo,
     kit
   };
-}
 
+  result.reports = buildAuditReports(result);
+  result.kit.files.push(...buildReportFiles(result));
+  return result;
+}
 function emptyPageAnalysis(url) {
   return {
     url,
@@ -249,6 +428,12 @@ function emptyPageAnalysis(url) {
     hasStructuredData: false,
     openGraph: {},
     hasOpenGraph: false,
+    twitter: {},
+    hasTwitterCard: false,
+    hreflang: [],
+    mixedContent: [],
+    manifest: '',
+    charset: '',
     favicon: ''
   };
 }
@@ -260,6 +445,8 @@ export function analyzeHtml(html, pageUrl) {
   const viewport = cleanText(findMetaContent(html, 'name', 'viewport'));
   const canonical = findLinkHref(html, 'canonical');
   const favicon = findFavicon(html);
+  const manifest = findLinkHref(html, 'manifest');
+  const charset = findCharset(html);
   const lang = cleanText(firstMatch(html, /<html\b[^>]*\blang\s*=\s*["']?([^"'\s>]+)/i));
   const h1 = extractHeadings(html, 1);
   const h2 = extractHeadings(html, 2);
@@ -275,6 +462,14 @@ export function analyzeHtml(html, pageUrl) {
     image: findMetaContent(html, 'property', 'og:image'),
     type: findMetaContent(html, 'property', 'og:type')
   };
+  const twitter = {
+    card: findMetaContent(html, 'name', 'twitter:card'),
+    title: findMetaContent(html, 'name', 'twitter:title'),
+    description: findMetaContent(html, 'name', 'twitter:description'),
+    image: findMetaContent(html, 'name', 'twitter:image')
+  };
+  const hreflang = extractHreflang(html, pageUrl);
+  const mixedContent = extractMixedContent(html, pageUrl);
 
   return {
     url: pageUrl,
@@ -299,6 +494,12 @@ export function analyzeHtml(html, pageUrl) {
     hasStructuredData: jsonLdTypes.length > 0,
     openGraph,
     hasOpenGraph: Object.values(openGraph).filter(Boolean).length >= 2,
+    twitter,
+    hasTwitterCard: Object.values(twitter).filter(Boolean).length >= 2,
+    hreflang,
+    mixedContent,
+    manifest,
+    charset,
     favicon
   };
 }
@@ -380,6 +581,12 @@ async function auditSitemap(origin, robotsSitemaps, homepageUrl) {
 
   const best = responses.find((item) => item.isSitemap) || null;
   const normalizedHome = normalizeComparableUrl(homepageUrl);
+  const sitemapOrigin = new URL(origin).origin;
+  const bestUrls = best?.urls || [];
+  const foreignUrlCount = bestUrls.filter((raw) => {
+    try { return new URL(raw).origin !== sitemapOrigin; } catch { return true; }
+  }).length;
+  const sameOriginOnly = best ? foreignUrlCount === 0 : false;
   const includesHomepage = best
     ? best.urls.some((url) => normalizeComparableUrl(url) === normalizedHome || normalizeComparableUrl(url) === normalizeComparableUrl(origin))
     : false;
@@ -391,6 +598,8 @@ async function auditSitemap(origin, robotsSitemaps, homepageUrl) {
     fromRobots: best ? robotsSitemaps.includes(best.url) : false,
     urlCount: best?.urlCount || 0,
     includesHomepage,
+    sameOriginOnly,
+    foreignUrlCount,
     sampledUrls: best?.urls.slice(0, 25) || [],
     candidates: responses.map(({ urls, ...rest }) => rest)
   };
@@ -444,6 +653,160 @@ async function auditPolicies(origin, links) {
   return results;
 }
 
+async function auditCrawl({ targetUrl, origin, homepage, page, sitemap, crawlLimit, linkProbeLimit }) {
+  const candidates = buildCrawlCandidates({ targetUrl, origin, page, sitemap, crawlLimit });
+  const pages = await Promise.all(candidates.map(async (url) => {
+    if (normalizeComparableUrl(url) === normalizeComparableUrl(homepage.finalUrl || targetUrl)) {
+      return pageToCrawlEntry({ url, response: homepage, page });
+    }
+
+    const response = await fetchText(url, { timeoutMs: PROBE_TIMEOUT_MS });
+    const analyzed = response.ok && isHtmlResponse(response) ? analyzeHtml(response.text || '', response.finalUrl || url) : emptyPageAnalysis(url);
+    return pageToCrawlEntry({ url, response, page: analyzed });
+  }));
+
+  const linkTargets = uniqueInternalLinkTargets(pages, origin, linkProbeLimit);
+  const linkResults = await Promise.all(linkTargets.map((url) => fetchProbe(url)));
+  const brokenInternalLinks = linkResults.filter((item) => !item.ok || item.status >= 400);
+  const duplicateTitles = findDuplicates(pages.map((item) => item.title).filter(Boolean));
+  const duplicateDescriptions = findDuplicates(pages.map((item) => item.description).filter(Boolean));
+  const okPages = pages.filter((item) => item.ok && item.status < 400);
+
+  return {
+    requestedLimit: crawlLimit,
+    linkProbeLimit,
+    seedCount: candidates.length,
+    pages,
+    linkProbes: linkResults,
+    brokenInternalLinks,
+    duplicateTitles,
+    duplicateDescriptions,
+    totals: {
+      pages: pages.length,
+      ok: okPages.length,
+      errors: pages.length - okPages.length,
+      noindex: pages.filter((item) => item.noindex || item.xRobotsNoindex).length,
+      missingTitle: pages.filter((item) => item.ok && !item.title).length,
+      missingDescription: pages.filter((item) => item.ok && !item.description).length,
+      missingH1: pages.filter((item) => item.ok && item.h1Count === 0).length,
+      thinContent: pages.filter((item) => item.ok && item.wordCount < 120).length,
+      imagesMissingAlt: pages.reduce((sum, item) => sum + item.imagesMissingAlt, 0),
+      duplicateTitles: duplicateTitles.reduce((sum, item) => sum + item.count, 0),
+      duplicateDescriptions: duplicateDescriptions.reduce((sum, item) => sum + item.count, 0),
+      brokenInternalLinks: brokenInternalLinks.length,
+      averageElapsedMs: pages.length ? Math.round(pages.reduce((sum, item) => sum + item.elapsedMs, 0) / pages.length) : 0
+    }
+  };
+}
+
+function buildCrawlCandidates({ targetUrl, origin, page, sitemap, crawlLimit }) {
+  const urls = new Map();
+  const add = (raw) => {
+    try {
+      const url = new URL(raw, origin);
+      if (!['http:', 'https:'].includes(url.protocol)) return;
+      if (url.origin !== origin) return;
+      url.hash = '';
+      if (!isLikelyHtmlUrl(url)) return;
+      urls.set(normalizeComparableUrl(url.href), url.href);
+    } catch {}
+  };
+
+  add(targetUrl);
+  for (const url of sitemap.sampledUrls || []) add(url);
+  for (const link of page.internalLinks || []) add(link.url);
+  return [...urls.values()].slice(0, crawlLimit);
+}
+
+function pageToCrawlEntry({ url, response, page }) {
+  const headers = response.headers || {};
+  const xRobots = headers['x-robots-tag'] || '';
+  const contentType = headers['content-type'] || '';
+
+  return {
+    url,
+    finalUrl: response.finalUrl || url,
+    ok: Boolean(response.ok),
+    status: response.status || 0,
+    elapsedMs: response.elapsedMs || 0,
+    contentType,
+    title: page.title,
+    titleLength: page.titleLength,
+    description: page.description,
+    descriptionLength: page.descriptionLength,
+    canonical: page.canonical,
+    canonicalAbsolute: isAbsoluteHttpUrl(page.canonical),
+    noindex: page.noindex,
+    xRobots,
+    xRobotsNoindex: /\bnoindex\b/i.test(xRobots),
+    h1Count: page.h1.length,
+    h1: page.h1.slice(0, 3),
+    wordCount: page.wordCount,
+    internalLinks: page.internalLinks.length,
+    externalLinks: page.externalLinks.length,
+    images: page.images.length,
+    imagesMissingAlt: page.imagesMissingAlt.length,
+    jsonLdTypes: page.jsonLdTypes,
+    pageLinks: page.internalLinks,
+    hasOpenGraph: page.hasOpenGraph,
+    hasTwitterCard: page.hasTwitterCard,
+    hreflangCount: page.hreflang.length,
+    mixedContent: page.mixedContent.length
+  };
+}
+
+function uniqueInternalLinkTargets(pages, origin, limit) {
+  const urls = new Map();
+  if (limit <= 0) return [];
+
+  for (const item of pages) {
+    for (const link of item.pageLinks || []) {
+      addInternalProbeUrl(urls, link.url, origin);
+    }
+  }
+
+  if (urls.size === 0) {
+    for (const item of pages) {
+      try {
+        addInternalProbeUrl(urls, item.finalUrl || item.url, origin);
+      } catch {}
+    }
+  }
+
+  return [...urls.values()].slice(0, limit);
+}
+
+function addInternalProbeUrl(map, raw, origin) {
+  try {
+    const url = new URL(raw, origin);
+    if (!['http:', 'https:'].includes(url.protocol)) return;
+    if (url.origin !== origin) return;
+    url.hash = '';
+    map.set(normalizeComparableUrl(url.href), url.href);
+  } catch {}
+}
+
+function findDuplicates(values) {
+  const map = new Map();
+  for (const value of values) {
+    const key = cleanText(value).toLowerCase();
+    if (!key) continue;
+    map.set(key, (map.get(key) || 0) + 1);
+  }
+
+  return [...map.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([value, count]) => ({ value, count }));
+}
+
+function isLikelyHtmlUrl(url) {
+  return !/\.(?:jpg|jpeg|png|gif|webp|avif|svg|pdf|zip|rar|7z|mp4|mp3|css|js|ico|woff2?|ttf|eot)$/i.test(url.pathname);
+}
+
+function isHtmlResponse(response) {
+  const contentType = response.headers?.['content-type'] || '';
+  return !contentType || /text\/html|application\/xhtml/i.test(contentType);
+}
 function findPolicyLinks(links) {
   const patterns = {
     privacy: /\b(privacidad|privacy|politica[-\s]*de[-\s]*privacidad|proteccion[-\s]*de[-\s]*datos)\b/i,
@@ -464,7 +827,7 @@ function findPolicyLinks(links) {
   return found;
 }
 
-export function buildChecks({ targetUrl, homepage, page, robotsResponse, robots, sitemap, policies }) {
+export function buildChecks({ targetUrl, homepage, page, robotsResponse, robots, sitemap, policies, crawl, dns }) {
   const contentType = homepage.headers?.['content-type'] || '';
   const hasHtmlContentType = /text\/html|application\/xhtml/i.test(contentType);
   const titlePoints = scoreLength(page.titleLength, 10, 65, 5, page.title ? 3 : 0);
@@ -474,7 +837,23 @@ export function buildChecks({ targetUrl, homepage, page, robotsResponse, robots,
   const jsonLdUseful = page.jsonLdTypes.some((type) =>
     /organization|localbusiness|website|webpage|article|product|softwareapplication|service/i.test(type)
   );
-  const coreGoogleReady = homepage.ok && !page.noindex && !robots.blocksAll && sitemap.found;
+  const xRobots = homepage.headers?.['x-robots-tag'] || '';
+  const xRobotsNoindex = /\bnoindex\b/i.test(xRobots);
+  const securityHeaders = ['strict-transport-security', 'x-content-type-options', 'content-security-policy', 'referrer-policy'];
+  const securityHeaderCount = securityHeaders.filter((header) => Boolean(homepage.headers?.[header])).length;
+  const securityPoints = securityHeaderCount >= 3 ? 4 : securityHeaderCount >= 2 ? 3 : securityHeaderCount === 1 ? 1 : 0;
+  const canonicalAbsolute = isAbsoluteHttpUrl(page.canonical);
+  const hreflangValid = page.hreflang.length === 0 || page.hreflang.every((item) => item.hreflang && isAbsoluteHttpUrl(item.href));
+  const sitemapSameOrigin = sitemap.found && sitemap.sameOriginOnly;
+  const sitemapWithinLimits = sitemap.found && sitemap.urlCount <= 50000;
+  const crawlTotals = crawl?.totals || {};
+  const crawlPages = crawlTotals.pages || 0;
+  const dnsAddresses = Array.isArray(dns?.addresses) ? dns.addresses : [];
+  const hasDnsAddress = Boolean(dns?.resolves && dnsAddresses.length);
+  const hasIpv6 = (dns?.aaaa || []).length > 0 || dnsAddresses.some((item) => item.family === 6);
+  const hasNameservers = (dns?.ns || []).length >= 2;
+  const hasMailAuth = Boolean(dns?.spf && dns?.dmarc);
+  const coreGoogleReady = homepage.ok && !page.noindex && !xRobotsNoindex && !robots.blocksAll && sitemap.found;
 
   return [
     makeCheck({
@@ -658,6 +1037,146 @@ export function buildChecks({ targetUrl, homepage, page, robotsResponse, robots,
       label: 'Base lista para Search Console',
       evidence: coreGoogleReady ? 'Home, sitemap, indexacion y robots OK' : 'Falta alguna pieza critica',
       recommendation: 'Antes de enviar a Google, valida que la home carga, no hay noindex, robots no bloquea y el sitemap existe.'
+    }),
+    makeCheck({
+      id: 'response_time',
+      points: homepage.ok ? (homepage.elapsedMs <= 1200 ? 4 : homepage.elapsedMs <= 2500 ? 2 : homepage.elapsedMs <= 4500 ? 1 : 0) : 0,
+      label: 'Respuesta rapida de la home',
+      evidence: homepage.ok ? `${homepage.elapsedMs} ms` : homepage.error || `HTTP ${homepage.status}`,
+      recommendation: 'Reduce TTFB, cachea HTML y optimiza servidor para que la home responda rapido.'
+    }),
+    makeCheck({
+      id: 'redirect_chain',
+      points: homepage.ok ? (normalizeComparableUrl(targetUrl.href) === normalizeComparableUrl(homepage.finalUrl || targetUrl.href) ? 2 : 1) : 0,
+      label: 'Redireccion inicial controlada',
+      evidence: homepage.finalUrl && homepage.finalUrl !== targetUrl.href ? `${targetUrl.href} -> ${homepage.finalUrl}` : 'Sin redireccion inicial',
+      recommendation: 'Evita cadenas de redireccion y deja una unica canonica HTTPS.'
+    }),
+    makeCheck({
+      id: 'security_headers',
+      points: securityPoints,
+      label: 'Cabeceras de confianza basicas',
+      evidence: `${securityHeaderCount} de ${securityHeaders.length} cabeceras detectadas`,
+      recommendation: 'Configura HSTS, X-Content-Type-Options, Content-Security-Policy y Referrer-Policy cuando aplique.'
+    }),
+    makeCheck({
+      id: 'mixed_content',
+      points: page.mixedContent.length === 0 ? 3 : page.mixedContent.length <= 2 ? 1 : 0,
+      label: 'Sin contenido mixto HTTP',
+      evidence: `${page.mixedContent.length} recursos HTTP en pagina HTTPS`,
+      recommendation: 'Sirve imagenes, scripts, iframes y CSS siempre por HTTPS.'
+    }),
+    makeCheck({
+      id: 'x_robots_header',
+      points: xRobotsNoindex ? 0 : 3,
+      label: 'X-Robots-Tag no bloquea indexacion',
+      evidence: xRobots || 'Sin X-Robots-Tag restrictiva',
+      recommendation: 'Retira X-Robots-Tag: noindex de paginas que quieras posicionar.'
+    }),
+    makeCheck({
+      id: 'canonical_absolute',
+      points: canonicalAbsolute ? 2 : page.canonical ? 1 : 0,
+      label: 'Canonical absoluto',
+      evidence: page.canonical || 'Sin canonical',
+      recommendation: 'Usa canonical absoluto con protocolo y dominio.'
+    }),
+    makeCheck({
+      id: 'hreflang_valid',
+      points: hreflangValid ? 2 : 0,
+      label: 'Hreflang valido si existe',
+      evidence: page.hreflang.length ? `${page.hreflang.length} alternates` : 'No aplica',
+      recommendation: 'Si el sitio es multiidioma, usa hreflang con URLs absolutas y reciprocas.'
+    }),
+    makeCheck({
+      id: 'twitter_cards',
+      points: page.hasTwitterCard ? 2 : Object.values(page.twitter || {}).some(Boolean) ? 1 : 0,
+      label: 'Twitter Cards configuradas',
+      evidence: page.hasTwitterCard ? 'Twitter Card basica detectada' : 'Faltan metadatos twitter:*',
+      recommendation: 'Anade twitter:card, twitter:title, twitter:description y twitter:image para mejorar previews.'
+    }),
+    makeCheck({
+      id: 'sitemap_same_origin',
+      points: sitemapSameOrigin ? 3 : sitemap.found ? 1 : 0,
+      label: 'Sitemap usa URLs del mismo dominio',
+      evidence: sitemap.found ? `${sitemap.foreignUrlCount || 0} URL(s) externas` : 'Sin sitemap',
+      recommendation: 'El sitemap debe listar URLs canonicas del mismo dominio y protocolo principal.'
+    }),
+    makeCheck({
+      id: 'sitemap_size_limit',
+      points: sitemapWithinLimits ? 2 : sitemap.found ? 0 : 0,
+      label: 'Sitemap dentro de limites',
+      evidence: sitemap.found ? `${sitemap.urlCount} URL(s)` : 'Sin sitemap',
+      recommendation: 'Divide sitemaps grandes en indices antes de superar 50.000 URLs por archivo.'
+    }),
+    makeCheck({
+      id: 'crawl_completed',
+      points: crawlPages >= Math.min(crawl?.requestedLimit || 1, 2) ? 4 : crawlPages > 0 ? 2 : 0,
+      label: 'Crawler interno ejecutado',
+      evidence: `${crawlPages} pagina(s) analizadas`,
+      recommendation: 'Ejecuta el modo full con mas paginas para detectar problemas fuera de la home.'
+    }),
+    makeCheck({
+      id: 'crawl_statuses',
+      points: (crawlTotals.errors || 0) === 0 ? 4 : (crawlTotals.errors || 0) <= 1 ? 2 : 0,
+      label: 'Paginas rastreadas sin errores HTTP',
+      evidence: `${crawlTotals.errors || 0} error(es) en ${crawlPages} pagina(s)`,
+      recommendation: 'Corrige 4xx/5xx internos y redirecciones innecesarias.'
+    }),
+    makeCheck({
+      id: 'duplicate_titles',
+      points: (crawlTotals.duplicateTitles || 0) === 0 ? 3 : 0,
+      label: 'Titles sin duplicados en crawl',
+      evidence: `${crawlTotals.duplicateTitles || 0} duplicado(s)`,
+      recommendation: 'Cada pagina indexable debe tener un title unico y descriptivo.'
+    }),
+    makeCheck({
+      id: 'duplicate_descriptions',
+      points: (crawlTotals.duplicateDescriptions || 0) === 0 ? 3 : 0,
+      label: 'Descriptions sin duplicados en crawl',
+      evidence: `${crawlTotals.duplicateDescriptions || 0} duplicado(s)`,
+      recommendation: 'Evita meta descriptions repetidas en paginas importantes.'
+    }),
+    makeCheck({
+      id: 'broken_internal_links',
+      points: (crawlTotals.brokenInternalLinks || 0) === 0 ? 4 : (crawlTotals.brokenInternalLinks || 0) <= 2 ? 1 : 0,
+      label: 'Enlaces internos sin rotos',
+      evidence: `${crawlTotals.brokenInternalLinks || 0} enlace(s) roto(s)`,
+      recommendation: 'Actualiza o elimina enlaces internos que devuelvan 4xx, 5xx o timeout.'
+    }),
+    makeCheck({
+      id: 'dns_resolves',
+      points: hasDnsAddress ? 4 : 0,
+      label: 'DNS resuelve el dominio',
+      evidence: hasDnsAddress ? `${dnsAddresses.length} direccion(es) detectadas` : dns?.errors?.lookup || 'Sin respuesta DNS',
+      recommendation: 'Configura registros A o AAAA validos para el dominio principal.'
+    }),
+    makeCheck({
+      id: 'dns_latency',
+      points: hasDnsAddress && dns.lookupMs <= 120 ? 3 : hasDnsAddress && dns.lookupMs <= 350 ? 2 : hasDnsAddress ? 1 : 0,
+      label: 'Resolucion DNS rapida',
+      evidence: `${dns?.lookupMs ?? 0} ms`,
+      recommendation: 'Usa DNS fiable, evita cadenas CNAME innecesarias y revisa proveedor si la resolucion es lenta.'
+    }),
+    makeCheck({
+      id: 'dns_ipv6',
+      points: hasIpv6 ? 1 : 0,
+      label: 'IPv6 disponible',
+      evidence: hasIpv6 ? 'AAAA detectado' : 'Sin AAAA detectado',
+      recommendation: 'Anade IPv6 si el hosting/CDN lo soporta para mejorar cobertura y resiliencia.'
+    }),
+    makeCheck({
+      id: 'dns_nameservers',
+      points: hasNameservers ? 2 : (dns?.ns || []).length ? 1 : 0,
+      label: 'Nameservers configurados',
+      evidence: `${(dns?.ns || []).length} NS detectados`,
+      recommendation: 'Mantener al menos dos nameservers autoritativos mejora disponibilidad DNS.'
+    }),
+    makeCheck({
+      id: 'dns_mail_auth',
+      points: hasMailAuth ? 2 : (dns?.spf || dns?.dmarc) ? 1 : 0,
+      label: 'SPF y DMARC basicos',
+      evidence: `SPF ${dns?.spf ? 'OK' : 'falta'}, DMARC ${dns?.dmarc ? 'OK' : 'falta'}`,
+      recommendation: 'Publica SPF y DMARC para mejorar confianza del dominio y entregabilidad de correos.'
     })
   ];
 }
@@ -703,14 +1222,14 @@ function summarizeCategories(checks) {
 }
 
 function scoreToGrade(score) {
-  const percent = Math.round((score / MAX_SCORE) * 100);
+  const percent = Math.max(0, Math.min(100, Number(score) || 0));
   if (percent >= 90) return { label: 'Excelente', tone: 'good' };
   if (percent >= 75) return { label: 'Bueno', tone: 'good' };
   if (percent >= 60) return { label: 'Mejorable', tone: 'warn' };
   return { label: 'Critico', tone: 'bad' };
 }
 
-function collectDiscoveredUrls(homepageUrl, page, sitemap, policies) {
+function collectDiscoveredUrls(homepageUrl, page, sitemap, policies, crawl) {
   const urls = new Set([homepageUrl]);
   for (const link of page.internalLinks.slice(0, 80)) {
     urls.add(stripHash(link.url));
@@ -721,16 +1240,144 @@ function collectDiscoveredUrls(homepageUrl, page, sitemap, policies) {
   for (const policy of Object.values(policies || {})) {
     if (policy?.found && policy.url) urls.add(stripHash(policy.url));
   }
-  return [...urls].slice(0, 120);
+  for (const crawled of crawl?.pages || []) {
+    if (crawled.ok && crawled.finalUrl) urls.add(stripHash(crawled.finalUrl));
+  }
+  return [...urls].slice(0, 250);
 }
 
+export function buildAuditReports(result) {
+  return {
+    markdown: buildMarkdownReport(result),
+    checksCsv: buildChecksCsv(result.checks || []),
+    pagesCsv: buildPagesCsv(result.crawl?.pages || [])
+  };
+}
+
+function buildReportFiles(result) {
+  const reports = result.reports || buildAuditReports(result);
+  return [
+    {
+      path: 'reports/interseo-audit.md',
+      language: 'markdown',
+      content: reports.markdown
+    },
+    {
+      path: 'reports/checks.csv',
+      language: 'csv',
+      content: reports.checksCsv
+    },
+    {
+      path: 'reports/pages.csv',
+      language: 'csv',
+      content: reports.pagesCsv
+    },
+    {
+      path: 'reports/audit.json',
+      language: 'json',
+      content: `${JSON.stringify(compactAuditJson(result), null, 2)}\n`
+    }
+  ];
+}
+
+function buildMarkdownReport(result) {
+  const lines = [
+    `# Informe interseo`,
+    '',
+    `URL: ${result.finalUrl}`,
+    `Fecha: ${result.auditedAt}`,
+    `Puntuacion: ${result.score}/100 (${result.grade.label})`,
+    `Paginas rastreadas: ${result.crawl?.totals?.pages || 0}`,
+    `DNS: ${result.dns?.resolves ? 'resuelve' : 'no resuelve'} (${result.dns?.lookupMs ?? 0} ms)`,
+    '',
+    '## Prioridad',
+    ''
+  ];
+
+  for (const check of (result.priority || []).slice(0, 15)) {
+    lines.push(`- [${check.category}] ${check.label}: ${check.recommendation}`);
+  }
+
+  lines.push('', '## Categorias', '');
+  for (const category of result.categories || []) {
+    lines.push(`- ${category.name}: ${category.percent}% (${category.score}/${category.max})`);
+  }
+
+  lines.push('', '## DNS e infra', '');
+  lines.push(`- Host: ${result.dns?.hostname || ''}`);
+  lines.push(`- Dominio base: ${result.dns?.domain || ''}`);
+  lines.push(`- Direcciones: ${(result.dns?.addresses || []).map((item) => item.address).join(', ') || 'sin datos'}`);
+  lines.push(`- Nameservers: ${(result.dns?.ns || []).join(', ') || 'sin datos'}`);
+  lines.push(`- SPF: ${result.dns?.spf ? 'OK' : 'falta'}`);
+  lines.push(`- DMARC: ${result.dns?.dmarc ? 'OK' : 'falta'}`);
+
+  lines.push('', '## Crawler', '');
+  const totals = result.crawl?.totals || {};
+  lines.push(`- OK: ${totals.ok || 0}`);
+  lines.push(`- Errores HTTP: ${totals.errors || 0}`);
+  lines.push(`- Paginas con noindex: ${totals.noindex || 0}`);
+  lines.push(`- Titles duplicados: ${totals.duplicateTitles || 0}`);
+  lines.push(`- Descriptions duplicadas: ${totals.duplicateDescriptions || 0}`);
+  lines.push(`- Enlaces internos rotos: ${totals.brokenInternalLinks || 0}`);
+
+  lines.push('', '## Envio a Google', '');
+  lines.push(`- Sitemap: ${result.sitemap?.url || 'pendiente'}`);
+  lines.push(`- robots.txt: ${result.robots?.url || 'pendiente'}`);
+  lines.push('- Verifica dominio en Google Search Console.');
+  lines.push('- Envia el sitemap desde el informe Sitemaps.');
+  lines.push('- Usa inspeccion de URL para pedir recrawl de la home despues de publicar cambios.');
+  lines.push('');
+
+  return lines.join('\n');
+}
+
+function buildChecksCsv(checks) {
+  const rows = [['category', 'id', 'status', 'points', 'max', 'label', 'evidence', 'recommendation']];
+  for (const check of checks) {
+    rows.push([check.category, check.id, check.status, check.points, check.max, check.label, check.evidence, check.recommendation]);
+  }
+  return csv(rows);
+}
+
+function buildPagesCsv(pages) {
+  const rows = [['url', 'status', 'ok', 'title', 'description', 'canonical', 'noindex', 'h1_count', 'word_count', 'internal_links', 'images_missing_alt', 'elapsed_ms']];
+  for (const page of pages) {
+    rows.push([page.finalUrl || page.url, page.status, page.ok, page.title, page.description, page.canonical, page.noindex || page.xRobotsNoindex, page.h1Count, page.wordCount, page.internalLinks, page.imagesMissingAlt, page.elapsedMs]);
+  }
+  return csv(rows);
+}
+
+function csv(rows) {
+  return `${rows.map((row) => row.map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')}\n`;
+}
+
+function compactAuditJson(result) {
+  return {
+    auditedAt: result.auditedAt,
+    inputUrl: result.inputUrl,
+    finalUrl: result.finalUrl,
+    score: result.score,
+    grade: result.grade,
+    categories: result.categories,
+    priority: (result.priority || []).slice(0, 20),
+    robots: result.robots,
+    sitemap: result.sitemap,
+    policies: result.policies,
+    dns: result.dns,
+    crawl: {
+      totals: result.crawl?.totals || {},
+      pages: result.crawl?.pages || [],
+      brokenInternalLinks: result.crawl?.brokenInternalLinks || []
+    }
+  };
+}
 export function buildGeneratedKit(input) {
   const targetUrl = normalizeUrl(input.url);
   const origin = targetUrl.origin;
   const siteName = cleanText(input.siteName || targetUrl.hostname) || targetUrl.hostname;
   const businessName = cleanText(input.businessName || siteName) || siteName;
   const description = cleanText(input.description || `Sitio web oficial de ${siteName}.`);
-  const contactEmail = cleanText(input.contactEmail || 'contacto@tu-dominio.com');
+  const contactEmail = cleanText(input.contactEmail || defaultContactEmailForUrl(targetUrl.href));
   const today = new Date().toISOString().slice(0, 10);
   const urls = normalizeKitUrls(input.discoveredUrls || [targetUrl.href], origin);
   const sitemapUrl = new URL('/sitemap.xml', origin).href;
@@ -829,6 +1476,31 @@ export function buildGeneratedKit(input) {
       path: 'legal/aviso-legal.md',
       language: 'markdown',
       content: buildTermsTemplate({ businessName, contactEmail, termsUrl, today })
+    },
+    {
+      path: 'llms.txt',
+      language: 'text',
+      content: [`# ${siteName}`, '', `> ${description}`, '', `Sitio: ${origin}`, `Sitemap: ${sitemapUrl}`, `Contacto: ${contactEmail}`, ''].join('\n')
+    },
+    {
+      path: 'humans.txt',
+      language: 'text',
+      content: [`Team: ${businessName}`, `Site: ${origin}`, `Contact: ${contactEmail}`, `Updated: ${today}`, ''].join('\n')
+    },
+    {
+      path: '.well-known/security.txt',
+      language: 'text',
+      content: [`Contact: mailto:${contactEmail}`, `Canonical: ${origin}/.well-known/security.txt`, `Expires: ${new Date(Date.now() + 15552000000).toISOString().slice(0, 10)}T00:00:00Z`, ''].join('\n')
+    },
+    {
+      path: 'google-site-verification.html',
+      language: 'html',
+      content: ['google-site-verification: REEMPLAZA-ESTE-TOKEN.html', ''].join('\n')
+    },
+    {
+      path: 'interseo.mcp.json',
+      language: 'json',
+      content: `${JSON.stringify({ mcpServers: { interseo: { command: 'node', args: ['src/mcp.js'] } } }, null, 2)}\n`
     }
   ];
 
@@ -1038,6 +1710,66 @@ function findLinkHref(html, relName) {
   return '';
 }
 
+function findCharset(html) {
+  for (const tag of findTags(html, 'meta')) {
+    const attrs = parseAttributes(tag);
+    if (attrs.charset) return attrs.charset;
+    if ((attrs['http-equiv'] || '').toLowerCase() === 'content-type') {
+      const match = String(attrs.content || '').match(/charset=([^;\s]+)/i);
+      if (match) return match[1];
+    }
+  }
+  return '';
+}
+
+function extractHreflang(html, pageUrl) {
+  const items = [];
+  for (const tag of findTags(html, 'link')) {
+    const attrs = parseAttributes(tag);
+    const rel = (attrs.rel || '').toLowerCase().split(/\s+/);
+    if (!rel.includes('alternate') || !attrs.hreflang || !attrs.href) continue;
+
+    try {
+      items.push({
+        hreflang: attrs.hreflang.toLowerCase(),
+        href: new URL(attrs.href, pageUrl).href
+      });
+    } catch {}
+  }
+  return items;
+}
+
+function extractMixedContent(html, pageUrl) {
+  const base = new URL(pageUrl);
+  if (base.protocol !== 'https:') return [];
+
+  const items = [];
+  for (const tagName of ['img', 'script', 'link', 'iframe', 'source']) {
+    for (const tag of findTags(html, tagName)) {
+      const attrs = parseAttributes(tag);
+      const raw = attrs.src || attrs.href || attrs.srcset || '';
+      if (/^http:\/\//i.test(raw)) {
+        items.push({ tag: tagName, url: raw.split(/\s+/)[0] });
+      }
+    }
+  }
+  return items;
+}
+
+function isAbsoluteHttpUrl(value) {
+  try {
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol);
+  } catch {
+    return false;
+  }
+}
+
+function clampNumber(value, min, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return min;
+  return Math.max(min, Math.min(max, Math.round(number)));
+}
 function findFavicon(html) {
   for (const tag of findTags(html, 'link')) {
     const attrs = parseAttributes(tag);
