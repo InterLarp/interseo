@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>interseo</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Auditor local</p>
+          <h1>interseo</h1>
+        </div>
+        <div class="topbar-actions">
+          <span id="serverStatus" class="status-dot">Servidor local</span>
+        </div>
+      </header>
+
+      <main class="layout">
+        <aside class="panel input-panel">
+          <form id="auditForm">
+            <label for="url">URL</label>
+            <input id="url" name="url" type="url" placeholder="https://tudominio.com" required>
+
+            <label for="siteName">Nombre</label>
+            <input id="siteName" name="siteName" type="text" placeholder="Marca o proyecto">
+
+            <label for="contactEmail">Email legal</label>
+            <input id="contactEmail" name="contactEmail" type="email" placeholder="contacto@dominio.com">
+
+            <button id="auditButton" type="submit">Auditar SEO</button>
+          </form>
+
+          <div class="mini-metrics" id="miniMetrics">
+            <div>
+              <span>Rastreo</span>
+              <strong>-</strong>
+            </div>
+            <div>
+              <span>Indexacion</span>
+              <strong>-</strong>
+            </div>
+            <div>
+              <span>Confianza</span>
+              <strong>-</strong>
+            </div>
+          </div>
+        </aside>
+
+        <section class="workspace">
+          <section class="score-band">
+            <div class="score-block">
+              <div id="scoreRing" class="score-ring" style="--score: 0">
+                <span id="scoreValue">--</span>
+              </div>
+              <div>
+                <p class="eyebrow">Puntuacion</p>
+                <h2 id="gradeLabel">Pendiente</h2>
+                <p id="auditMeta" class="muted">Introduce una URL para generar el diagnostico.</p>
+              </div>
+            </div>
+            <div id="categoryBars" class="category-bars"></div>
+          </section>
+
+          <section class="two-column">
+            <div class="panel">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">Prioridad</p>
+                  <h2>Correcciones</h2>
+                </div>
+              </div>
+              <div id="priorityList" class="check-list empty-state">Sin auditoria todavia.</div>
+            </div>
+
+            <div class="panel">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">Google</p>
+                  <h2>Preparacion</h2>
+                </div>
+              </div>
+              <div id="googleReadiness" class="readiness-list empty-state">El checklist aparece despues del analisis.</div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Kit</p>
+                <h2>Archivos generados</h2>
+              </div>
+              <button id="saveKitButton" class="secondary" type="button" disabled>Guardar kit</button>
+            </div>
+            <div id="saveResult" class="save-result"></div>
+            <div id="kitTabs" class="tabs"></div>
+            <pre id="kitPreview" class="code-preview">Ejecuta una auditoria para generar robots.txt, sitemap.xml, JSON-LD y plantillas legales.</pre>
+          </section>
+
+          <section class="panel">
+            <div class="section-head">
+              <div>
+                <p class="eyebrow">Detalle</p>
+                <h2>Todos los checks</h2>
+              </div>
+            </div>
+            <div id="allChecks" class="check-list empty-state">Sin resultados.</div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

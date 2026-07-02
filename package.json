@@ -1,0 +1,15 @@
+{
+  "name": "interseo",
+  "version": "1.0.0",
+  "description": "App local interseo para auditar SEO tecnico y preparar archivos basicos para Google Search.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test",
+    "audit": "node src/cli.js audit"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
