@@ -363,6 +363,7 @@ export async function auditSite(input) {
     homepage,
     page,
     sitemap,
+    robots,
     crawlLimit,
     linkProbeLimit
   });
@@ -391,6 +392,7 @@ export async function auditSite(input) {
     description: request.description || page.description || '',
     businessName: request.businessName || inferredSiteName,
     contactEmail: defaultContactEmailForUrl(targetUrl.href),
+    lang: request.lang || page.lang || '',
     discoveredUrls
   });
 
@@ -598,6 +600,38 @@ export function parseRobotsTxt(text) {
   };
 }
 
+export function robotsAllows(robots, pathname) {
+  const groups = (robots?.groups || []).filter((group) => group.agents.includes('*'));
+  let best = null;
+
+  for (const group of groups) {
+    for (const rule of group.rules) {
+      const pattern = rule.value.trim();
+      if (!pattern) continue;
+      if (!robotsRuleMatches(pattern, pathname)) continue;
+      const specificity = pattern.replace(/[*$]/g, '').length;
+      if (!best || specificity > best.specificity || (specificity === best.specificity && rule.directive === 'allow')) {
+        best = { directive: rule.directive, specificity };
+      }
+    }
+  }
+
+  return !best || best.directive === 'allow';
+}
+
+function robotsRuleMatches(pattern, pathname) {
+  const anchored = pattern.endsWith('$');
+  const body = (anchored ? pattern.slice(0, -1) : pattern)
+    .split('*')
+    .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('.*');
+  try {
+    return new RegExp(`^${body}${anchored ? '$' : ''}`).test(pathname);
+  } catch {
+    return false;
+  }
+}
+
 async function auditSitemap(origin, robotsSitemaps, homepageUrl) {
   const resolvedRobotsSitemaps = robotsSitemaps.map((raw) => {
     try { return new URL(raw, origin).href; } catch { return ''; }
@@ -716,10 +750,11 @@ async function auditPolicies(origin, links) {
   return results;
 }
 
-async function auditCrawl({ targetUrl, origin, homepage, page, sitemap, crawlLimit, linkProbeLimit }) {
+async function auditCrawl({ targetUrl, origin, homepage, page, sitemap, robots, crawlLimit, linkProbeLimit }) {
   const seen = new Set();
   const queue = [];
-  const enqueue = (raw) => {
+  let skippedByRobots = 0;
+  const enqueue = (raw, force = false) => {
     try {
       const url = new URL(raw, origin);
       if (!['http:', 'https:'].includes(url.protocol)) return;
@@ -728,12 +763,17 @@ async function auditCrawl({ targetUrl, origin, homepage, page, sitemap, crawlLim
       if (!isLikelyHtmlUrl(url)) return;
       const key = normalizeComparableUrl(url.href);
       if (seen.has(key)) return;
+      if (!force && !robotsAllows(robots, url.pathname + url.search)) {
+        seen.add(key);
+        skippedByRobots += 1;
+        return;
+      }
       seen.add(key);
       queue.push(url.href);
     } catch {}
   };
 
-  enqueue(targetUrl);
+  enqueue(targetUrl, true);
   for (const url of sitemap.sampledUrls || []) enqueue(url);
   for (const link of page.internalLinks || []) enqueue(link.url);
 
@@ -778,6 +818,7 @@ async function auditCrawl({ targetUrl, origin, homepage, page, sitemap, crawlLim
       pages: pages.length,
       ok: okPages.length,
       errors: pages.length - okPages.length,
+      skippedByRobots,
       noindex: pages.filter((item) => item.noindex || item.xRobotsNoindex).length,
       missingTitle: pages.filter((item) => item.ok && !item.title).length,
       missingDescription: pages.filter((item) => item.ok && !item.description).length,
@@ -1482,6 +1523,7 @@ function buildMarkdownReport(result) {
   lines.push(`- Titles duplicados: ${totals.duplicateTitles || 0}`);
   lines.push(`- Descriptions duplicadas: ${totals.duplicateDescriptions || 0}`);
   lines.push(`- Enlaces internos rotos: ${totals.brokenInternalLinks || 0}`);
+  lines.push(`- URLs saltadas por robots.txt: ${totals.skippedByRobots || 0}`);
 
   lines.push('', '## Envio a Google', '');
   lines.push(`- Sitemap: ${result.sitemap?.url || 'pendiente'}`);
@@ -1559,11 +1601,25 @@ export function buildGeneratedKit(input) {
 
   const schema = {
     '@context': 'https://schema.org',
-    '@type': 'Organization',
-    name: businessName,
-    url: origin,
-    email: contactEmail.includes('@') ? contactEmail : undefined,
-    sameAs: []
+    '@graph': [
+      {
+        '@type': 'Organization',
+        '@id': `${origin}/#organization`,
+        name: businessName,
+        url: origin,
+        email: contactEmail.includes('@') ? contactEmail : undefined,
+        sameAs: []
+      },
+      {
+        '@type': 'WebSite',
+        '@id': `${origin}/#website`,
+        name: siteName,
+        url: origin,
+        description,
+        publisher: { '@id': `${origin}/#organization` },
+        inLanguage: cleanText(input.lang || '') || undefined
+      }
+    ]
   };
 
   const files = [
@@ -1578,14 +1634,17 @@ export function buildGeneratedKit(input) {
       content: [
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-        ...urls.map((url) => [
-          '  <url>',
-          `    <loc>${escapeXml(url)}</loc>`,
-          `    <lastmod>${today}</lastmod>`,
-          '    <changefreq>weekly</changefreq>',
-          '    <priority>0.8</priority>',
-          '  </url>'
-        ].join('\n')),
+        ...urls.map((url) => {
+          const isHome = normalizeComparableUrl(url) === normalizeComparableUrl(`${origin}/`);
+          return [
+            '  <url>',
+            `    <loc>${escapeXml(url)}</loc>`,
+            `    <lastmod>${today}</lastmod>`,
+            `    <changefreq>${isHome ? 'daily' : 'weekly'}</changefreq>`,
+            `    <priority>${isHome ? '1.0' : '0.7'}</priority>`,
+            '  </url>'
+          ].join('\n');
+        }),
         '</urlset>',
         ''
       ].join('\n')

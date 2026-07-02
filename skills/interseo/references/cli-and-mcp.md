@@ -63,6 +63,7 @@ Returns: score, grade, categories, prioritized checks, robots/sitemap/policies/D
 | `siteName` | string | Optional name; domain used if omitted |
 | `description` | string | Short site description |
 | `businessName` | string | Legal business name |
+| `lang` | string | Language code for the WebSite structured data |
 | `discoveredUrls` | string[] | Same-origin URLs for sitemap.xml |
 
 Returns: `{ siteName, origin, generatedAt, files[] }` where each file is `{ path, language, content }`.

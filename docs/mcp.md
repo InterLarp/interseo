@@ -48,6 +48,7 @@ Genera los archivos del kit (robots, sitemap, JSON-LD, checklist de Search Conso
 | `siteName` | string | Nombre del sitio; si se omite, se usa el dominio |
 | `description` | string | Descripción corta del sitio |
 | `businessName` | string | Nombre legal del negocio |
+| `lang` | string | Código de idioma para los datos estructurados de WebSite |
 | `discoveredUrls` | string[] | URLs del mismo origen para incluir en el sitemap |
 
 ### `generate_fix_prompt`

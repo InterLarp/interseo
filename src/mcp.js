@@ -32,6 +32,7 @@ const tools = [
         siteName: { type: 'string', description: 'Optional site or brand name. If omitted, interseo uses the domain.' },
         description: { type: 'string', description: 'Short site description.' },
         businessName: { type: 'string', description: 'Legal or business name.' },
+        lang: { type: 'string', description: 'Primary language code (e.g. es, en) for the WebSite structured data.' },
         discoveredUrls: { type: 'array', items: { type: 'string' }, description: 'Known same-origin URLs to include in sitemap.xml.' }
       },
       required: ['url']
