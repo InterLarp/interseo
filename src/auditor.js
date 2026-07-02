@@ -901,7 +901,7 @@ function addInternalProbeUrl(map, raw, origin) {
   } catch {}
 }
 
-function findDuplicates(values) {
+export function findDuplicates(values) {
   const map = new Map();
   for (const value of values) {
     const key = cleanText(value).toLowerCase();
@@ -1318,7 +1318,7 @@ function scoreLength(length, min, max, fullPoints, partialPoints) {
   return partialPoints;
 }
 
-function summarizeCategories(checks) {
+export function summarizeCategories(checks) {
   const map = new Map();
   for (const check of checks) {
     if (!map.has(check.category)) {
@@ -1336,7 +1336,7 @@ function summarizeCategories(checks) {
   }));
 }
 
-function scoreToGrade(score) {
+export function scoreToGrade(score) {
   const percent = Math.max(0, Math.min(100, Number(score) || 0));
   if (percent >= 90) return { label: 'Excelente', tone: 'good' };
   if (percent >= 75) return { label: 'Bueno', tone: 'good' };
@@ -2062,7 +2062,7 @@ function countWords(text) {
   return cleaned.trim() ? cleaned.trim().split(/\s+/).length : 0;
 }
 
-function cleanText(value) {
+export function cleanText(value) {
   return decodeHtml(String(value || '').replace(/<[^>]*>/g, ' '))
     .replace(/\s+/g, ' ')
     .trim();

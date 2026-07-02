@@ -39,6 +39,17 @@ node src/cli.js kit tudominio.com --save    # genera el kit sin auditar
 
 La referencia completa de comandos y flags está en [docs/cli.md](docs/cli.md).
 
+## Auditar desde el código fuente
+
+Además de auditar el sitio publicado, interseo puede auditar la carpeta con el HTML de un proyecto **sin tocar la red** — útil antes del deploy, en CI, o cuando el sitio aún no existe. Los hallazgos señalan archivos concretos, así que un agente puede arreglarlos directamente:
+
+```powershell
+node src/cli.js source ./dist --base https://tudominio.com
+node src/cli.js source ./public --prompt    # prompt de arreglo con rutas de archivo
+```
+
+Revisa por página: title, description, H1, `lang`, viewport, canonical, `noindex`, alt de imágenes y thin content; y por proyecto: `robots.txt`, `sitemap.xml`, páginas legales, mixed content y enlaces internos que apuntan a archivos que no existen.
+
 ## Servidor MCP
 
 ```powershell
@@ -63,6 +74,7 @@ Herramientas disponibles:
 | Herramienta | Qué hace |
 | --- | --- |
 | `audit_site` | Auditoría completa: DNS, crawl, score, reportes, prompts y kit |
+| `audit_source` | Audita el código fuente local (carpeta con HTML) sin red |
 | `generate_seo_kit` | Genera los archivos del kit sin rastrear |
 | `generate_fix_prompt` | Prompt de arreglo listo para skill, MCP o edición directa |
 | `analyze_html` | Analiza HTML en bruto |

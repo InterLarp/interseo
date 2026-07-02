@@ -38,6 +38,18 @@ Auditoría completa de una URL pública: DNS, robots, sitemap, metadatos, polít
 | `crawlLimit` | number | Máximo de páginas del mismo origen a rastrear (5 por defecto, máx. 40) |
 | `linkProbeLimit` | number | Máximo de URLs internas a comprobar como enlaces rotos (12 por defecto) |
 
+### `audit_source`
+
+Audita el código fuente local de un sitio (carpeta con HTML) **sin acceso a red**. Los hallazgos señalan rutas de archivo reales, así que un agente puede aplicar los arreglos directamente.
+
+| Parámetro | Tipo | Descripción |
+| --- | --- | --- |
+| `dir` (requerido) | string | Carpeta con el HTML publicable (`dist/`, `public/`, o la raíz) |
+| `baseUrl` | string | URL del sitio para resolver enlaces absolutos internos |
+| `pageLimit` | number | Máximo de archivos HTML a analizar (200 por defecto) |
+
+Devuelve: score, checks priorizados, totales por carencia, enlaces rotos con archivo de origen, análisis por página, `fixPrompt` (prompt de arreglo con rutas) y `report` (Markdown).
+
 ### `generate_seo_kit`
 
 Genera los archivos del kit (robots, sitemap, JSON-LD, checklist de Search Console, plantillas legales, `llms.txt`, `humans.txt`, `security.txt`, config MCP) sin rastrear el sitio.

@@ -43,6 +43,22 @@ node src/cli.js kit tudominio.com --description "Tienda de cerámica" --save
 node src/cli.js kit tudominio.com --urls "https://tudominio.com/,https://tudominio.com/contacto"
 ```
 
+### `source`
+
+Audita el código fuente local de un sitio (una carpeta con HTML) sin acceso a red. Los hallazgos referencian archivos reales del proyecto.
+
+```powershell
+node src/cli.js source ./dist --base https://tudominio.com
+node src/cli.js source ./public --json
+node src/cli.js source . --prompt
+```
+
+- `--base <url>` define la URL del sitio para resolver enlaces absolutos internos (por defecto `https://example.com`).
+- `--limit <n>` limita los archivos HTML analizados (por defecto 200).
+- `--prompt` imprime un prompt de arreglo con las rutas de archivo a editar; `--json` devuelve el resultado completo.
+
+Revisa por página (title, description, H1, lang, viewport, canonical, noindex, alt, thin content) y por proyecto (robots.txt, sitemap.xml, páginas legales, mixed content y enlaces internos rotos comprobados contra los archivos existentes).
+
 ### `report`
 
 Audita y muestra solo el informe Markdown (sin guardar nada). Acepta `--deep`, `--full` y `--limit` igual que `audit`.

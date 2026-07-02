@@ -1,6 +1,7 @@
 import { createInterface } from 'node:readline';
 import { createRequire } from 'node:module';
 import { analyzeHtml, auditSite, buildAuditReports, buildFixPrompts, buildGeneratedKit } from './auditor.js';
+import { auditSource } from './source-auditor.js';
 
 const pkg = createRequire(import.meta.url)('../package.json');
 const PROTOCOL_VERSION = '2025-06-18';
@@ -54,6 +55,20 @@ const tools = [
     }
   },
   {
+    name: 'audit_source',
+    title: 'Audit Website Source Code',
+    description: 'Audit the local source code of a website (a folder with HTML files) without any network access: titles, descriptions, H1s, canonical, noindex, robots.txt, sitemap.xml, legal pages, statically-broken internal links, thin content and more. Findings reference real file paths so an agent can fix them directly.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        dir: { type: 'string', description: 'Path to the folder containing the publishable HTML (e.g. dist/, public/ or the project root).' },
+        baseUrl: { type: 'string', description: 'Site base URL used to resolve absolute internal links. Default https://example.com.' },
+        pageLimit: { type: 'number', description: 'Maximum HTML files to analyze. Default 200.' }
+      },
+      required: ['dir']
+    }
+  },
+  {
     name: 'analyze_html',
     title: 'Analyze HTML SEO',
     description: 'Analyze raw HTML for SEO metadata, headings, links, images, JSON-LD, Open Graph, Twitter Cards, hreflang, and mixed content.',
@@ -93,6 +108,9 @@ const handlers = {
     const prompts = audit.fixPrompts || buildFixPrompts(audit);
     const mode = ['skill', 'mcp', 'direct'].includes(args?.mode) ? args.mode : 'skill';
     return { mode, prompt: prompts[mode], prompts, issues: prompts.issues };
+  },
+  async audit_source(args) {
+    return auditSource(args || {});
   },
   async analyze_html(args) {
     return analyzeHtml(String(args?.html || ''), String(args?.url || 'https://example.com/'));

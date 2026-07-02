@@ -2,11 +2,12 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { auditSite, buildGeneratedKit } from './auditor.js';
+import { auditSource } from './source-auditor.js';
 
 const pkg = createRequire(import.meta.url)('../package.json');
 const BOOLEAN_FLAGS = new Set(['save', 'deep', 'full', 'json', 'prompt', 'help', 'version']);
 const rawArgs = process.argv.slice(2);
-const known = new Set(['audit', 'kit', 'report', 'prompt']);
+const known = new Set(['audit', 'kit', 'report', 'prompt', 'source']);
 const command = known.has(rawArgs[0]) ? rawArgs.shift() : 'audit';
 const flags = parseFlags(rawArgs);
 const domain = flags._[0];
@@ -70,6 +71,17 @@ try {
   if (command === 'report') {
     const result = await auditSite({ url: domain, siteName: name, crawlLimit, linkProbeLimit });
     console.log(result.reports.markdown);
+  }
+
+  if (command === 'source') {
+    const result = await auditSource({ dir: domain, baseUrl: flags.base || flags.baseUrl, pageLimit: flags.limit });
+    if (flags.prompt) {
+      console.log(result.fixPrompt);
+    } else if (flags.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log(result.report);
+    }
   }
 } catch (error) {
   console.error(error.message || error);
@@ -141,10 +153,11 @@ function usage(exitCode = 1) {
 Uso: node src/cli.js [comando] <dominio> [nombre del sitio] [flags]
 
 Comandos:
-  audit    auditoria completa (por defecto)
+  audit    auditoria completa de un dominio (por defecto)
   prompt   auditar y devolver solo el prompt de arreglo
   kit      generar el kit de archivos sin rastrear
   report   auditar y mostrar solo el informe Markdown
+  source   auditar el codigo fuente local de un sitio (carpeta con HTML)
 
 Flags:
   --save                    guardar el kit generado en disco
@@ -159,6 +172,7 @@ Flags:
   --description <texto>     descripcion para el kit
   --businessName <nombre>   nombre legal para las plantillas
   --urls <lista>            URLs conocidas para el sitemap (separadas por comas)
+  --base <url>              base URL para resolver enlaces en el modo source
   --help, -h                mostrar esta ayuda
   --version                 mostrar la version
 
@@ -166,6 +180,7 @@ Ejemplos:
   node src/cli.js tudominio.com
   node src/cli.js tudominio.com --save --deep
   node src/cli.js prompt tudominio.com
-  node src/cli.js kit tudominio.com --save`);
+  node src/cli.js kit tudominio.com --save
+  node src/cli.js source ./dist --base https://tudominio.com`);
   process.exit(exitCode);
 }

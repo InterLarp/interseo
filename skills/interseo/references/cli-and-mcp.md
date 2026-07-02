@@ -16,6 +16,7 @@ The domain accepts bare hostnames (`example.com` → `https://example.com`). If 
 | `prompt` | Audit, then print only the fix prompt | Prompt text |
 | `kit` | Generate the file kit without crawling | Kit JSON (files written with `--save`) |
 | `report` | Audit, print only the Markdown report | Markdown report |
+| `source` | Audit a local folder of HTML, no network | Markdown report (`--json` full result, `--prompt` fix prompt with file paths) |
 
 ### Flags
 
@@ -54,6 +55,16 @@ Server: `node src/mcp.js` (stdio, JSON-RPC, protocol `2025-06-18`). Tool executi
 | `linkProbeLimit` | number | Internal URLs probed for broken links (default 12) |
 
 Returns: score, grade, categories, prioritized checks, robots/sitemap/policies/DNS detail, crawl totals and pages, generated kit, reports, and fix prompts.
+
+### `audit_source`
+
+| Param | Type | Description |
+| --- | --- | --- |
+| `dir` (required) | string | Folder with the publishable HTML (`dist/`, `public/`, project root) |
+| `baseUrl` | string | Site base URL to resolve absolute internal links |
+| `pageLimit` | number | Max HTML files to analyze (default 200) |
+
+No network access. Returns score, prioritized checks, per-page analysis, broken internal links with source file, `fixPrompt` (file-level fix prompt) and `report` (Markdown). Also add `--base <url>` to the CLI `source` command for the same purpose.
 
 ### `generate_seo_kit`
 

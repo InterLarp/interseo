@@ -25,6 +25,7 @@ node scripts/run_interseo.mjs kit example.com --save
 
 - **CLI** (`node src/cli.js` from the repo, or `node scripts/run_interseo.mjs` from anywhere) — default. Use for one-off audits, saving kits to disk, or printing fix prompts.
 - **MCP** (`node src/mcp.js`) — use when a client should call tools programmatically, chain audits with fixes, reuse a previous audit JSON, or analyze raw HTML without fetching.
+- **Source mode** (`source` command / `audit_source` tool) — audit a local folder of HTML **without network**. Best when the site is not deployed yet, for pre-deploy or CI checks, or when the user wants file-level fixes: every finding references a real file path you can edit directly.
 - Full command, flag, and tool parameter tables: `references/cli-and-mcp.md`.
 - Scoring categories, priority order, and kit contents: `references/seo-checks.md`.
 
@@ -45,7 +46,11 @@ node src/cli.js example.com --prompt=mcp
 node src/cli.js prompt example.com
 node src/cli.js kit example.com --save
 node src/cli.js report example.com --full
+node src/cli.js source ./dist --base https://example.com
+node src/cli.js source ./public --prompt
 ```
+
+For source mode: point it at the folder with the final HTML (`dist/`, `public/`, or the project root). Use `--prompt` to get a fix prompt listing the exact files to edit, then apply those edits yourself in the repo.
 
 ## MCP workflow
 
@@ -68,8 +73,9 @@ Typical tool chains:
 - **Fix prompt without re-crawling**: pass a previous audit to `generate_fix_prompt` as `audit` — no new network calls.
 - **Offline analysis**: `analyze_html` for raw HTML you already have; `build_report` to turn any audit JSON into Markdown/CSV.
 - **Bootstrap files**: `generate_seo_kit` when the site needs robots/sitemap/JSON-LD/legal pages and a crawl is unnecessary.
+- **Local project audit**: `audit_source` with the project's HTML folder — no network, findings point at files; fix them, then re-run to confirm.
 
-Tools: `audit_site`, `generate_seo_kit`, `generate_fix_prompt`, `analyze_html`, `build_report` — parameters in `references/cli-and-mcp.md`. Tool failures come back in-band with `isError: true`, not as protocol errors.
+Tools: `audit_site`, `audit_source`, `generate_seo_kit`, `generate_fix_prompt`, `analyze_html`, `build_report` — parameters in `references/cli-and-mcp.md`. Tool failures come back in-band with `isError: true`, not as protocol errors.
 
 ## Interpreting results
 
