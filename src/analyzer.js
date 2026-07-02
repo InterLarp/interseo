@@ -25,6 +25,7 @@ export function analyzeHtml(html, pageUrl) {
   const title = cleanText(firstMatch(html, /<title\b[^>]*>([\s\S]*?)<\/title>/i));
   const description = cleanText(findMetaContent(html, 'name', 'description'));
   const robotsMeta = cleanText(findMetaContent(html, 'name', 'robots'));
+  const metaRefresh = cleanText(findMetaContent(html, 'http-equiv', 'refresh'));
   const viewport = cleanText(findMetaContent(html, 'name', 'viewport'));
   const canonical = findLinkHref(html, 'canonical');
   const favicon = findFavicon(html);
@@ -65,6 +66,7 @@ export function analyzeHtml(html, pageUrl) {
     viewport,
     lang,
     robotsMeta,
+    metaRefresh,
     noindex: /\bnoindex\b/i.test(robotsMeta),
     h1,
     h2Count: h2.length,

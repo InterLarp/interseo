@@ -20,10 +20,10 @@ Por página HTML:
 Por proyecto:
 
 - `robots.txt` presente y sin bloqueo global
-- `sitemap.xml` presente y válido
+- `sitemap.xml` presente, válido y **con URLs que corresponden a archivos reales**
 - Páginas legales (privacidad, cookies, aviso legal) y de contacto
 - **Enlaces internos rotos comprobados contra los archivos reales** (`/blog/` → ¿existe `blog/index.html`?)
-- Titles y descriptions duplicados entre páginas
+- Titles y descriptions duplicados entre páginas, redirecciones `meta refresh`
 
 Devuelve puntuación 0-100 con nota (Excelente / Bueno / Mejorable / Crítico), los problemas ordenados por prioridad y un prompt de arreglo con las rutas de archivo a editar.
 

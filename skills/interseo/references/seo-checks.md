@@ -4,9 +4,9 @@
 
 The score is split across these categories. The overall grade is Excelente (≥90), Bueno (≥75), Mejorable (≥60), or Crítico (<60).
 
-- **Rastreo** — HTML pages found, robots.txt present and not blocking everything, sitemap.xml present and valid.
+- **Rastreo** — HTML pages found, robots.txt present and not blocking everything, sitemap.xml present, valid, and with every URL resolving to an actual file.
 - **Contenido** — per-page title, unique titles, meta description, unique descriptions, H1, `lang`, viewport, image alt text, thin content (under 120 words).
-- **Indexación** — canonical per page, no unexpected `noindex`, JSON-LD on the home, Open Graph on the home, favicon.
+- **Indexación** — canonical per page, no unexpected `noindex`, no `meta refresh` redirects, JSON-LD on the home, Open Graph on the home, favicon.
 - **Confianza** — legal pages (privacy, cookies, legal notice), contact/about page, no `http://` resources in pages.
 - **Enlaces** — internal links resolve to files that actually exist (`/about` → `about.html` or `about/index.html`).
 
@@ -25,7 +25,7 @@ Per-page checks scale: full points with 0 affected pages, half if up to 20% of p
 
 ## Result shape
 
-`audit_source` returns `score`, `grade`, `categories`, `checks` (id, category, status pass/warn/fail, points, max, evidence, recommendation), `priority` (failing checks by lost points), `totals`, `brokenLinks` (`{file, href, target}`), `pages` (per-file analysis), `fixPrompt` and `report`.
+`audit_source` returns `score`, `grade`, `categories`, `checks` (id, category, status pass/warn/fail, points, max, evidence, recommendation), `priority` (failing checks by lost points), `totals`, `brokenLinks` (`{file, href, target}`), `sitemapMissingFiles` (`{url, target}` — sitemap URLs with no matching file), `pages` (per-file analysis), `fixPrompt` and `report`.
 
 ## Generated kit
 

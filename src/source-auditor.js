@@ -20,6 +20,7 @@ const SOURCE_CHECKS = [
   { id: 'robots_txt', category: 'Rastreo', max: 4 },
   { id: 'robots_not_blocking', category: 'Rastreo', max: 4 },
   { id: 'sitemap_file', category: 'Rastreo', max: 6 },
+  { id: 'sitemap_urls_exist', category: 'Rastreo', max: 4 },
   { id: 'titles_present', category: 'Contenido', max: 5 },
   { id: 'titles_unique', category: 'Contenido', max: 4 },
   { id: 'descriptions_present', category: 'Contenido', max: 5 },
@@ -31,6 +32,7 @@ const SOURCE_CHECKS = [
   { id: 'thin_content', category: 'Contenido', max: 3 },
   { id: 'canonical_present', category: 'Indexacion', max: 3 },
   { id: 'noindex_review', category: 'Indexacion', max: 3 },
+  { id: 'no_meta_refresh', category: 'Indexacion', max: 2 },
   { id: 'structured_data_home', category: 'Indexacion', max: 4 },
   { id: 'open_graph_home', category: 'Indexacion', max: 3 },
   { id: 'favicon_home', category: 'Indexacion', max: 2 },
@@ -67,12 +69,14 @@ export async function auditSource(input) {
   const sitemap = parseSitemap(sitemapRaw);
 
   const brokenLinks = findBrokenLinks(pages, fileSet, baseUrl);
-  const totals = buildTotals(pages, brokenLinks);
+  const sitemapMissingFiles = findSitemapMissingFiles(sitemap.urls, fileSet);
+  const totals = buildTotals(pages, brokenLinks, sitemapMissingFiles);
   const checks = buildSourceChecks({
     pages,
     home,
     totals,
     brokenLinks,
+    sitemapMissingFiles,
     hasRobots: fileSet.has('robots.txt'),
     robots,
     sitemapFile,
@@ -100,6 +104,7 @@ export async function auditSource(input) {
       .sort((a, b) => (b.max - b.points) - (a.max - a.points)),
     totals,
     brokenLinks: brokenLinks.slice(0, 50),
+    sitemapMissingFiles: sitemapMissingFiles.slice(0, 50),
     pages: pages.map(({ links, ...page }) => page),
     robots: { exists: fileSet.has('robots.txt'), blocksAll: robots.blocksAll, sitemaps: robots.sitemaps },
     sitemap: { file: sitemapFile, isSitemap: sitemap.isSitemap, urlCount: sitemap.urls.length }
@@ -158,6 +163,7 @@ function pickPageFields(analysis) {
     lang: analysis.lang,
     viewport: analysis.viewport,
     noindex: analysis.noindex,
+    metaRefresh: analysis.metaRefresh,
     h1Count: analysis.h1.length,
     wordCount: analysis.wordCount,
     imagesMissingAlt: analysis.imagesMissingAlt.length,
@@ -168,6 +174,22 @@ function pickPageFields(analysis) {
     mixedContent: analysis.mixedContent.length,
     internalLinks: analysis.internalLinks.length
   };
+}
+
+function findSitemapMissingFiles(urls, fileSet) {
+  const missing = [];
+  for (const raw of urls) {
+    let pathname;
+    try {
+      pathname = decodeURIComponent(new URL(raw).pathname);
+    } catch {
+      continue;
+    }
+    if (!pathExistsInSource(pathname, fileSet)) {
+      missing.push({ url: raw, target: pathname });
+    }
+  }
+  return missing;
 }
 
 function findBrokenLinks(pages, fileSet, baseUrl) {
@@ -211,7 +233,7 @@ function pathExistsInSource(pathname, fileSet) {
   return candidates.some((candidate) => fileSet.has(candidate));
 }
 
-function buildTotals(pages, brokenLinks) {
+function buildTotals(pages, brokenLinks, sitemapMissingFiles) {
   return {
     pages: pages.length,
     missingTitle: pages.filter((page) => !page.title).length,
@@ -222,16 +244,18 @@ function buildTotals(pages, brokenLinks) {
     missingViewport: pages.filter((page) => !page.viewport).length,
     missingCanonical: pages.filter((page) => !page.canonical).length,
     noindex: pages.filter((page) => page.noindex).length,
+    metaRefresh: pages.filter((page) => page.metaRefresh).length,
     thinContent: pages.filter((page) => page.wordCount < 120).length,
     imagesMissingAlt: pages.reduce((sum, page) => sum + page.imagesMissingAlt, 0),
     mixedContent: pages.reduce((sum, page) => sum + page.mixedContent, 0),
     duplicateTitles: findDuplicates(pages.map((page) => page.title).filter(Boolean)).reduce((sum, item) => sum + item.count, 0),
     duplicateDescriptions: findDuplicates(pages.map((page) => page.description).filter(Boolean)).reduce((sum, item) => sum + item.count, 0),
-    brokenInternalLinks: brokenLinks.length
+    brokenInternalLinks: brokenLinks.length,
+    sitemapMissingFiles: sitemapMissingFiles.length
   };
 }
 
-function buildSourceChecks({ pages, home, totals, brokenLinks, hasRobots, robots, sitemapFile, sitemap, files }) {
+function buildSourceChecks({ pages, home, totals, brokenLinks, sitemapMissingFiles, hasRobots, robots, sitemapFile, sitemap, files }) {
   const total = pages.length || 1;
   const legalPattern = /(privacidad|privacy|cookies|aviso-?legal|terminos|terms|legal)/i;
   const contactPattern = /(contacto|contact|about|sobre-?nosotros|quienes-?somos)/i;
@@ -275,6 +299,17 @@ function buildSourceChecks({ pages, home, totals, brokenLinks, hasRobots, robots
       evidence: sitemapFile ? `${sitemapFile} con ${sitemap.urls.length} URL(s)` : 'No hay sitemap*.xml',
       recommendation: 'Genera un sitemap.xml con las URLs finales del sitio.'
     }),
+    makeSourceCheck({
+      id: 'sitemap_urls_exist',
+      points: !sitemapFile ? 0 : sitemapMissingFiles.length === 0 ? 4 : sitemapMissingFiles.length <= 2 ? 2 : 0,
+      label: 'Las URLs del sitemap corresponden a archivos',
+      evidence: sitemapFile
+        ? sitemapMissingFiles.length
+          ? `${sitemapMissingFiles.length} URL(s) sin archivo, ej: ${sitemapMissingFiles[0].target}`
+          : 'Todas las URLs del sitemap tienen archivo'
+        : 'Sin sitemap',
+      recommendation: 'Elimina del sitemap las URLs que ya no existen o crea los archivos que faltan.'
+    }),
     scaled('titles_present', totals.missingTitle, 'Todas las paginas tienen title',
       `${totals.missingTitle} de ${total} sin <title>`, 'Anade un title unico y descriptivo a cada pagina.'),
     scaled('titles_unique', totals.duplicateTitles, 'Titles sin duplicados',
@@ -301,6 +336,13 @@ function buildSourceChecks({ pages, home, totals, brokenLinks, hasRobots, robots
       label: 'Sin noindex inesperados',
       evidence: `${totals.noindex} pagina(s) con noindex`,
       recommendation: 'Verifica que cada noindex sea intencional antes de publicar.'
+    }),
+    makeSourceCheck({
+      id: 'no_meta_refresh',
+      points: totals.metaRefresh === 0 ? 2 : 0,
+      label: 'Sin redirecciones meta refresh',
+      evidence: `${totals.metaRefresh} pagina(s) con meta refresh`,
+      recommendation: 'Sustituye los meta refresh por redirecciones 301 del servidor o enlaces normales.'
     }),
     makeSourceCheck({
       id: 'structured_data_home',
@@ -419,6 +461,15 @@ function buildSourceMarkdown(result) {
   lines.push(`- Thin content: ${totals.thinContent}`);
   lines.push(`- Imagenes sin alt: ${totals.imagesMissingAlt}`);
   lines.push(`- Enlaces internos rotos: ${totals.brokenInternalLinks}`);
+  lines.push(`- URLs del sitemap sin archivo: ${totals.sitemapMissingFiles}`);
+  lines.push(`- Paginas con meta refresh: ${totals.metaRefresh}`);
+
+  if (result.sitemapMissingFiles.length) {
+    lines.push('', '## URLs del sitemap sin archivo', '');
+    for (const item of result.sitemapMissingFiles.slice(0, 20)) {
+      lines.push(`- ${item.url}`);
+    }
+  }
 
   if (result.brokenLinks.length) {
     lines.push('', '## Enlaces rotos', '');

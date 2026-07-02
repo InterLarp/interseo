@@ -44,7 +44,7 @@ Audita el código fuente local de un sitio (carpeta con HTML) sin acceso a red. 
 | `baseUrl` | string | URL del sitio para resolver enlaces absolutos internos |
 | `pageLimit` | number | Máximo de archivos HTML a analizar (200 por defecto) |
 
-Devuelve: `score` (0-100) y `grade`, `checks` y `priority` (con `evidence` y `recommendation`), `totals` por carencia, `brokenLinks` con archivo de origen, `pages` (análisis por página), `fixPrompt` (prompt de arreglo con rutas) y `report` (Markdown).
+Devuelve: `score` (0-100) y `grade`, `checks` y `priority` (con `evidence` y `recommendation`), `totals` por carencia, `brokenLinks` con archivo de origen, `sitemapMissingFiles` (URLs del sitemap sin archivo correspondiente), `pages` (análisis por página), `fixPrompt` (prompt de arreglo con rutas) y `report` (Markdown).
 
 ### `generate_seo_kit`
 
