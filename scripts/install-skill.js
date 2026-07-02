@@ -11,11 +11,11 @@ const targetRoot = path.join(codexHome, 'skills');
 const target = path.join(targetRoot, 'interseo');
 
 if (!existsSync(source)) {
-  console.error(`No existe ${source}`);
+  console.error(`Missing ${source}`);
   process.exit(1);
 }
 
 await mkdir(targetRoot, { recursive: true });
 await rm(target, { recursive: true, force: true });
 await cp(source, target, { recursive: true });
-console.log(`Skill instalada en ${target}`);
+console.log(`Skill installed at ${target}`);

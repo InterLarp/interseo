@@ -27,13 +27,13 @@ if (!repo) {
 if (!repo) {
   const cache = path.join(os.homedir(), '.interseo', 'repo');
   if (!isRepo(cache)) {
-    console.error(`interseo no encontrado. Descargando en ${cache}...`);
+    console.error(`interseo not found. Downloading into ${cache}...`);
     const clone = spawnSync('git', ['clone', '--depth', '1', REPO_URL, cache], {
       stdio: 'inherit',
       shell: false
     });
     if (clone.status !== 0 || !isRepo(cache)) {
-      console.error('No se pudo descargar interseo. Instala git o define INTERSEO_HOME apuntando a un checkout del repo.');
+      console.error('Could not download interseo. Install git or set INTERSEO_HOME to an interseo checkout.');
       process.exit(1);
     }
   }

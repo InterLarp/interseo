@@ -1,4 +1,4 @@
 interface:
   display_name: "interseo Site Audit"
-  short_description: "Offline SEO audits for source code"
-  default_prompt: "Use $interseo to audit a website's source folder, fix the flagged files, and generate the missing SEO assets."
+  short_description: "Offline SEO audits for source files"
+  default_prompt: "Use $interseo to audit the publishable HTML folder from disk, fix the flagged files, and generate missing SEO assets. Do not start a dev server or crawl a live URL."

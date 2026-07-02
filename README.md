@@ -9,7 +9,7 @@ interseo works offline. Give it the folder that contains the final HTML and it r
 Ask your agent to use the `interseo` skill and make the fixes directly in the repository.
 
 ```text
-Use the interseo skill. Audit the publishable HTML, fix the SEO issues in the source files, generate the missing SEO assets, and run the audit again.
+Use the interseo skill. Audit the publishable HTML folder from disk, fix the SEO issues in the source files, generate the missing SEO assets, and run the audit again. Do not start a dev server or crawl a live URL.
 ```
 
 The skill is included in this repo at [skills/interseo](skills/interseo).
