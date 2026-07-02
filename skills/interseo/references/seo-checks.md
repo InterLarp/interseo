@@ -10,7 +10,7 @@ The audit score is split across these categories, each with its own weight. The 
 - **Indexación** — noindex, X-Robots-Tag, structured data, Open Graph, Twitter Cards, hreflang, favicon.
 - **Confianza** — privacy policy, cookie policy, legal/terms page, contact or about page, mixed content.
 - **Google** — sitemap declared in robots.txt, sitemap includes the home URL, useful Schema.org type, Search Console readiness.
-- **Crawler** — internal crawl coverage, HTTP errors, duplicate titles and descriptions, thin content, broken internal links.
+- **Crawler** — breadth-first internal crawl that follows discovered links up to the page limit: HTTP errors, duplicate titles and descriptions, thin content, broken internal links. `crawl.discoveredCount` reports how many unique internal URLs were found (crawled or not).
 - **Rendimiento** — response time and redirect control.
 
 ## Priority order when fixing

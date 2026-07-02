@@ -482,6 +482,7 @@ function emptyPageAnalysis(url) {
 }
 
 export function analyzeHtml(html, pageUrl) {
+  const baseUrl = resolveBaseUrl(html, pageUrl);
   const title = cleanText(firstMatch(html, /<title\b[^>]*>([\s\S]*?)<\/title>/i));
   const description = cleanText(findMetaContent(html, 'name', 'description'));
   const robotsMeta = cleanText(findMetaContent(html, 'name', 'robots'));
@@ -493,10 +494,10 @@ export function analyzeHtml(html, pageUrl) {
   const lang = cleanText(firstMatch(html, /<html\b[^>]*\blang\s*=\s*["']?([^"'\s>]+)/i));
   const h1 = extractHeadings(html, 1);
   const h2 = extractHeadings(html, 2);
-  const links = extractLinks(html, pageUrl);
+  const links = extractLinks(html, pageUrl, baseUrl);
   const internalLinks = links.filter((link) => link.sameOrigin);
   const externalLinks = links.filter((link) => !link.sameOrigin);
-  const images = extractImages(html, pageUrl);
+  const images = extractImages(html, baseUrl);
   const imagesMissingAlt = images.filter((image) => !image.alt && !image.decorative);
   const jsonLdTypes = extractJsonLdTypes(html);
   const openGraph = {
@@ -512,7 +513,7 @@ export function analyzeHtml(html, pageUrl) {
     description: findMetaContent(html, 'name', 'twitter:description'),
     image: findMetaContent(html, 'name', 'twitter:image')
   };
-  const hreflang = extractHreflang(html, pageUrl);
+  const hreflang = extractHreflang(html, baseUrl);
   const mixedContent = extractMixedContent(html, pageUrl);
 
   return {
@@ -716,16 +717,46 @@ async function auditPolicies(origin, links) {
 }
 
 async function auditCrawl({ targetUrl, origin, homepage, page, sitemap, crawlLimit, linkProbeLimit }) {
-  const candidates = buildCrawlCandidates({ targetUrl, origin, page, sitemap, crawlLimit });
-  const pages = await Promise.all(candidates.map(async (url) => {
-    if (normalizeComparableUrl(url) === normalizeComparableUrl(homepage.finalUrl || targetUrl)) {
-      return pageToCrawlEntry({ url, response: homepage, page });
-    }
+  const seen = new Set();
+  const queue = [];
+  const enqueue = (raw) => {
+    try {
+      const url = new URL(raw, origin);
+      if (!['http:', 'https:'].includes(url.protocol)) return;
+      if (url.origin !== origin) return;
+      url.hash = '';
+      if (!isLikelyHtmlUrl(url)) return;
+      const key = normalizeComparableUrl(url.href);
+      if (seen.has(key)) return;
+      seen.add(key);
+      queue.push(url.href);
+    } catch {}
+  };
 
-    const response = await fetchText(url, { timeoutMs: PROBE_TIMEOUT_MS });
-    const analyzed = response.ok && isHtmlResponse(response) ? analyzeHtml(response.text || '', response.finalUrl || url) : emptyPageAnalysis(url);
-    return pageToCrawlEntry({ url, response, page: analyzed });
-  }));
+  enqueue(targetUrl);
+  for (const url of sitemap.sampledUrls || []) enqueue(url);
+  for (const link of page.internalLinks || []) enqueue(link.url);
+
+  const pages = [];
+  const homeKey = normalizeComparableUrl(homepage.finalUrl || targetUrl);
+
+  while (queue.length && pages.length < crawlLimit) {
+    const batch = queue.splice(0, Math.min(queue.length, crawlLimit - pages.length, 8));
+    const results = await Promise.all(batch.map(async (url) => {
+      if (normalizeComparableUrl(url) === homeKey) {
+        return pageToCrawlEntry({ url, response: homepage, page });
+      }
+
+      const response = await fetchText(url, { timeoutMs: PROBE_TIMEOUT_MS });
+      const analyzed = response.ok && isHtmlResponse(response) ? analyzeHtml(response.text || '', response.finalUrl || url) : emptyPageAnalysis(url);
+      return pageToCrawlEntry({ url, response, page: analyzed });
+    }));
+
+    for (const entry of results) {
+      pages.push(entry);
+      for (const link of entry.pageLinks || []) enqueue(link.url);
+    }
+  }
 
   const linkTargets = uniqueInternalLinkTargets(pages, origin, linkProbeLimit);
   const linkResults = await Promise.all(linkTargets.map((url) => fetchProbe(url)));
@@ -737,7 +768,7 @@ async function auditCrawl({ targetUrl, origin, homepage, page, sitemap, crawlLim
   return {
     requestedLimit: crawlLimit,
     linkProbeLimit,
-    seedCount: candidates.length,
+    discoveredCount: seen.size,
     pages,
     linkProbes: linkResults,
     brokenInternalLinks,
@@ -759,25 +790,6 @@ async function auditCrawl({ targetUrl, origin, homepage, page, sitemap, crawlLim
       averageElapsedMs: pages.length ? Math.round(pages.reduce((sum, item) => sum + item.elapsedMs, 0) / pages.length) : 0
     }
   };
-}
-
-function buildCrawlCandidates({ targetUrl, origin, page, sitemap, crawlLimit }) {
-  const urls = new Map();
-  const add = (raw) => {
-    try {
-      const url = new URL(raw, origin);
-      if (!['http:', 'https:'].includes(url.protocol)) return;
-      if (url.origin !== origin) return;
-      url.hash = '';
-      if (!isLikelyHtmlUrl(url)) return;
-      urls.set(normalizeComparableUrl(url.href), url.href);
-    } catch {}
-  };
-
-  add(targetUrl);
-  for (const url of sitemap.sampledUrls || []) add(url);
-  for (const link of page.internalLinks || []) add(link.url);
-  return [...urls.values()].slice(0, crawlLimit);
 }
 
 function pageToCrawlEntry({ url, response, page }) {
@@ -1765,9 +1777,20 @@ function buildTermsTemplate({ businessName, contactEmail, termsUrl, today }) {
   ].join('\n');
 }
 
-function extractLinks(html, pageUrl) {
+function resolveBaseUrl(html, pageUrl) {
+  for (const tag of findTags(html, 'base')) {
+    const attrs = parseAttributes(tag);
+    if (!attrs.href) continue;
+    try {
+      return new URL(attrs.href, pageUrl).href;
+    } catch {}
+  }
+  return pageUrl;
+}
+
+function extractLinks(html, pageUrl, baseUrl = pageUrl) {
   const links = [];
-  const base = new URL(pageUrl);
+  const pageOrigin = new URL(pageUrl).origin;
 
   for (const match of String(html || '').matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)) {
     const attrs = parseAttributes(match[1]);
@@ -1775,14 +1798,14 @@ function extractLinks(html, pageUrl) {
     if (!href || /^(#|mailto:|tel:|javascript:)/i.test(href.trim())) continue;
 
     try {
-      const url = new URL(href, base.href);
+      const url = new URL(href, baseUrl);
       if (!['http:', 'https:'].includes(url.protocol)) continue;
       url.hash = '';
       links.push({
         href,
         url: url.href,
         text: cleanText(match[2]),
-        sameOrigin: url.origin === base.origin
+        sameOrigin: url.origin === pageOrigin
       });
     } catch {}
   }
@@ -1904,12 +1927,18 @@ function extractMixedContent(html, pageUrl) {
   if (base.protocol !== 'https:') return [];
 
   const items = [];
-  for (const tagName of ['img', 'script', 'link', 'iframe', 'source']) {
+  for (const tagName of ['img', 'script', 'link', 'iframe', 'source', 'video', 'audio']) {
     for (const tag of findTags(html, tagName)) {
       const attrs = parseAttributes(tag);
-      const raw = attrs.src || attrs.href || attrs.srcset || '';
-      if (/^http:\/\//i.test(raw)) {
-        items.push({ tag: tagName, url: raw.split(/\s+/)[0] });
+      const candidates = [
+        attrs.src,
+        attrs.href,
+        ...String(attrs.srcset || '').split(',').map((entry) => entry.trim().split(/\s+/)[0])
+      ];
+      for (const raw of candidates) {
+        if (/^http:\/\//i.test(raw || '')) {
+          items.push({ tag: tagName, url: raw });
+        }
       }
     }
   }

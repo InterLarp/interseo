@@ -94,7 +94,7 @@ La auditoría puntúa por categorías y da una nota global (Excelente / Bueno / 
 - **Contenido** — `title`, meta description, canonical, viewport, idioma, H1, enlaces internos e imágenes sin `alt`.
 - **Indexación** — `noindex`, `X-Robots-Tag`, JSON-LD, Open Graph, Twitter Cards, hreflang y favicon.
 - **Confianza** — política de privacidad, cookies, aviso legal, página de contacto y mixed content.
-- **Crawler** — errores HTTP, titles y descriptions duplicados, thin content y enlaces internos rotos.
+- **Crawler** — rastreo interno que sigue los enlaces que descubre (BFS): errores HTTP, titles y descriptions duplicados, thin content y enlaces internos rotos.
 - **Google** — sitemap declarado en robots, Schema.org útil y preparación mínima para Search Console.
 - **Rendimiento** — tiempo de respuesta y control de redirects.
 
